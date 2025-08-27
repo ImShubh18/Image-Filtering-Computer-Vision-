@@ -119,18 +119,18 @@ The easiest way is to use a live server. If you are using VS Code, you can use t
 
 You can now use the application!
 
-###🕹️ How to Use
+### 🕹️ How to Use
 Upload: Drag an image onto the upload area or click to select a file.
 
 Select a Filter: Expand a category in the "Filter Options" panel.
 
 Learn: Click on a filter name. The "Mathematical Theory" panel will update with detailed information.
 
-#Apply: Click the "🚀 Apply Filter" button.
+# Apply: Click the "🚀 Apply Filter" button.
 
 Compare & Download: The comparison panel will appear. You can view the result and click the "Download Processed Image" button to save it.
 
-###🔬 Available Filters
+### 🔬 Available Filters
 A comprehensive list of image processing operations available in the studio:
 
 🎨 Basic Filters
