@@ -53,8 +53,30 @@ git clone [https://github.com/your-username/pixel-codex.git](https://github.com/
 cd pixel-codex
 ```
 
-***Note: If you don't have a requirements.txt file, create one in the root directory with the following content:***
+### 2. Backend Setup
+It's highly recommended to use a virtual environment.
 
+Create and activate the virtual environment:
+
+***On Windows:***
+
+```bash
+python -m venv venv
+venv\Scripts\activate
+```
+***On macOS/Linux:***
+
+```bash
+python -m venv venv
+source venv/bin/activate
+```
+Install the required Python packages:
+
+```bash
+pip install -r requirements.txt
+```
+
+```
 Flask
 Flask-Cors
 Pillow
@@ -63,8 +85,12 @@ scipy
 scikit-image
 scikit-learn
 opencv-python
+```
 
-###3. Frontend Setup
+***Note: If you don't have a requirements.txt file, create one in the root directory with the following content:***
+
+
+### 3. Frontend Setup
 The frontend consists of static files and requires no special installation. However, you must ensure the JavaScript fetch call points to the correct backend URL.
 
 Open the index.html file.
@@ -73,7 +99,7 @@ Find the line const response = await fetch(...).
 
 Make sure it points to your local Flask server: http://127.0.0.1:5000/apply_filter.
 
-4. Running the Application
+### 4. Running the Application
 Start the Backend Server:
 
 ```bash
