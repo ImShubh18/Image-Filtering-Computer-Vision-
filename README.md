@@ -1,10 +1,12 @@
+Of course! Here is a well-formatted version of your README file with appropriate bolding, headings, and structure to make it clear and professional.
+
 Pixel Codex 🧪✨
 (Formerly Image Filter Studio Pro)
 
 An advanced web-based image processing tool that not only applies a wide range of filters but also provides a deep dive into the mathematical theory behind each operation. Perfect for students, developers, and anyone curious about the science of digital imaging.
 
 🖼️ Live Demo & Screenshot
-A live demonstration of Pixel Alchemist in action. The interface allows for easy image upload, filter selection, and a clear comparison between the original and processed images, with the mathematical theory readily available.
+A live demonstration of Pixel Codex in action. The interface allows for easy image upload, filter selection, and a clear comparison between the original and processed images, with the mathematical theory readily available.
 
 (Will be uploaded soon!!)
 
@@ -27,6 +29,7 @@ This project is built with a powerful combination of frontend and backend techno
 Area	Technologies Used
 Frontend	HTML5, CSS3, JavaScript (ES6), KaTeX
 Backend	Python, Flask, Pillow (PIL), NumPy, SciPy, scikit-image, scikit-learn, OpenCV
+
 Export to Sheets
 ⚙️ Setup and Installation
 Follow these steps to get a local copy up and running.
@@ -41,21 +44,31 @@ Node.js (optional, for live-server)
 Git
 
 1. Clone the Repository
-git clone https://github.com/your-username/pixel-alchemist.git
-cd pixel-alchemist
+Bash
+
+git clone https://github.com/your-username/pixel-codex.git
+cd pixel-codex
 2. Backend Setup
 It's highly recommended to use a virtual environment.
 
-# Create a virtual environment
+Create a virtual environment
+Bash
+
 python -m venv venv
+Activate it
+On Windows:
 
-# Activate it
-# On Windows:
+Bash
+
 venv\Scripts\activate
-# On macOS/Linux:
-source venv/bin/activate
+On macOS/Linux:
 
-# Install the required Python packages
+Bash
+
+source venv/bin/activate
+Install the required Python packages
+Bash
+
 pip install -r requirements.txt
 Note: If you don't have a requirements.txt file, create one in the root directory with the following content:
 
@@ -78,15 +91,19 @@ Make sure it points to your local Flask server: http://127.0.0.1:5000/apply_filt
 
 4. Running the Application
 Start the Backend Server:
+Bash
 
 python your_backend_file.py
 The Flask server will start on http://127.0.0.1:5000.
 
-Start the Frontend: The easiest way is to use a live server. If you are using VS Code, you can use the Live Server extension.
+Start the Frontend:
+The easiest way is to use a live server. If you are using VS Code, you can use the Live Server extension.
 
 Right-click on index.html.
 
-Select "Open with Live Server". Your browser will open to an address like http://127.0.0.1:5500.
+Select "Open with Live Server".
+
+Your browser will open to an address like http://127.0.0.1:5500.
 
 You can now use the application!
 
