@@ -1,0 +1,1441 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixel Codex</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/contrib/auto-render.min.js"></script>
+    <style>
+      :root {
+        --bg1: #66dbea;
+        --bg2: #4aba8b;
+        --primary: #59ef86;
+        --primary2: #1d20db;
+        --text: #333;
+        --muted: #6b7280;
+        --card: #ffffff;
+        --cardAlt: #fafafa;
+        --radius: 16px;
+        --shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+        --border: #e5e7eb;
+        --spacing-xs: 8px;
+        --spacing-sm: 12px;
+        --spacing-md: 16px;
+        --spacing-lg: 24px;
+        --spacing-xl: 32px;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, var(--bg1) 0%, var(--bg2) 100%);
+        min-height: 100vh;
+        padding: 20px;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+      }
+      .container {
+        width: 100%;
+        max-width: 1400px;
+        background: rgba(255, 255, 255, 0.96);
+        border-radius: 20px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      .header {
+        background: linear-gradient(45deg, var(--primary), var(--primary2));
+        color: #fff;
+        text-align: center;
+        padding: 28px 18px;
+      }
+      .header h1 {
+        font-weight: 600;
+        font-size: 2.4rem;
+      }
+      .header p {
+        opacity: 0.95;
+        margin-top: 6px;
+      }
+      .grid {
+        display: grid;
+        gap: 22px;
+        padding: 28px;
+        grid-template-columns: repeat(3, 1fr);
+      }
+      .card {
+        background: var(--card);
+        border-radius: var(--radius);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+        padding: 22px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        display: flex;
+        flex-direction: column;
+      }
+      .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+      }
+      .card h2 {
+        font-size: 1.35rem;
+        color: rgb(79, 76, 247);
+        margin-bottom: var(--spacing-md);
+        text-align: left;
+      }
+      /* Upload area */
+      .upload-area {
+        border: 3px dashed var(--border);
+        border-radius: 14px;
+        padding: 38px;
+        text-align: center;
+        background: var(--cardAlt);
+        cursor: pointer;
+        transition: all 0.25s ease;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .upload-area:hover {
+        border-color: var(--primary);
+        background: #f0f8ff;
+      }
+      .upload-area.dragover {
+        border-color: var(--primary2);
+        background: #e9f5ff;
+      }
+      .upload-icon {
+        font-size: 3rem;
+        color: #a3a3a3;
+        margin-bottom: var(--spacing-sm);
+      }
+      .upload-btn {
+        margin-top: var(--spacing-md);
+        border: none;
+        border-radius: 999px;
+        background: linear-gradient(45deg, var(--primary), var(--primary2));
+        color: #fff;
+        padding: 11px 24px;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 8px 20px rgba(33, 150, 243, 0.28);
+        transition: transform 0.2s ease;
+      }
+      .upload-btn:hover {
+        transform: translateY(-1px);
+      }
+      .file-input {
+        display: none;
+      }
+      #preview {
+        margin-top: var(--spacing-md);
+        max-width: 100%;
+        max-height: 220px;
+        border-radius: 10px;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+        display: none;
+      }
+      /* Accordion */
+      .accordion {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-sm);
+        flex-grow: 1;
+      }
+      .acc-header {
+        width: 100%;
+        text-align: left;
+        background: #fff;
+        border: 2px solid var(--border);
+        border-radius: 12px;
+        padding: 14px 16px;
+        font-size: 1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+        cursor: pointer;
+        transition: 0.2s;
+      }
+      .acc-header:hover {
+        border-color: var(--primary);
+        background: #f7fbff;
+      }
+      .acc-header.active {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+      }
+      .acc-panel {
+        display: none;
+        padding: var(--spacing-sm) var(--spacing-xs) var(--spacing-xs)
+          var(--spacing-xs);
+      }
+      .grid-options {
+        display: grid;
+        gap: var(--spacing-sm);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .opt {
+        background: #fff;
+        border: 2px solid var(--border);
+        border-radius: 10px;
+        padding: var(--spacing-sm) var(--spacing-md);
+        text-align: center;
+        cursor: pointer;
+        transition: 0.2s;
+        font-weight: 500;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+      }
+      .opt:hover {
+        border-color: var(--primary);
+        background: #f0f8ff;
+      }
+      .opt.active {
+        color: #fff;
+        border-color: transparent;
+        background: linear-gradient(45deg, var(--primary), var(--primary2));
+      }
+      /* Buttons + selected chip */
+      .action-row {
+        margin-top: var(--spacing-md);
+        display: flex;
+        gap: var(--spacing-sm);
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .apply-btn {
+        border: none;
+        border-radius: 999px;
+        padding: 12px 22px;
+        font-weight: 700;
+        cursor: pointer;
+        background: linear-gradient(45deg, #4caf50, #43a047);
+        color: #fff;
+        box-shadow: 0 8px 20px rgba(76, 175, 80, 0.25);
+        transition: all 0.2s ease;
+      }
+      .apply-btn:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 25px rgba(76, 175, 80, 0.35);
+      }
+      .apply-btn:disabled {
+        background: #c9c9c9;
+        box-shadow: none;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .sel-chip {
+        background: #eaf4ff;
+        border-left: 4px solid var(--primary);
+        padding: var(--spacing-sm) var(--spacing-md);
+        border-radius: 10px;
+        font-size: 0.92rem;
+        color: #0f172a;
+        display: flex;
+        align-items: center;
+      }
+      /* Theory panel */
+      .theory {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: var(--spacing-md);
+        line-height: 1.6;
+        color: #374151;
+        font-size: 0.95rem;
+        max-height: 600px;
+        overflow-y: auto;
+        flex-grow: 1;
+      }
+      .theory h3 {
+        color: #0f5fb8;
+        margin: var(--spacing-md) 0 var(--spacing-sm) 0;
+        font-size: 1.2rem;
+      }
+      .theory h4 {
+        color: #145ea8;
+        margin: var(--spacing-sm) 0 var(--spacing-xs) 0;
+        font-size: 1.05rem;
+      }
+      .theory h5 {
+        color: #1e7bb8;
+        margin: var(--spacing-xs) 0 var(--spacing-xs) 0;
+        font-size: 1rem;
+      }
+      .theory pre {
+        background: #f6f8fb;
+        border: 1px solid #e6edf7;
+        border-radius: 8px;
+        padding: var(--spacing-md);
+        overflow: auto;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.9rem;
+        margin: var(--spacing-sm) 0;
+      }
+      .theory .math-block {
+        text-align: center;
+        margin: var(--spacing-md) 0;
+        padding: var(--spacing-sm);
+        background: #f8fafc;
+        border-radius: 8px;
+      }
+      .theory ol,
+      .theory ul {
+        margin: var(--spacing-sm) 0 var(--spacing-sm) var(--spacing-lg);
+      }
+      .theory li {
+        margin: var(--spacing-xs) 0;
+      }
+      .theory .note {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: var(--spacing-sm);
+        margin: var(--spacing-sm) 0;
+        border-radius: 4px;
+      }
+      .theory .pros-cons {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--spacing-md);
+        margin: var(--spacing-sm) 0;
+      }
+      .theory .pros,
+      .theory .cons {
+        padding: var(--spacing-sm);
+        border-radius: 8px;
+      }
+      .theory .pros {
+        background: #d1f2eb;
+        border-left: 4px solid #28a745;
+      }
+      .theory .cons {
+        background: #f8d7da;
+        border-left: 4px solid #dc3545;
+      }
+      .muted {
+        color: var(--muted);
+        font-style: italic;
+      }
+      /* Messages */
+      .success-message {
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+        padding: var(--spacing-md);
+        border-radius: 8px;
+        margin: var(--spacing-sm) 0;
+        display: none;
+        text-align: center;
+      }
+      .error-message {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+        padding: var(--spacing-md);
+        border-radius: 8px;
+        margin: var(--spacing-sm) 0;
+        display: none;
+        text-align: center;
+      }
+
+      /* Image comparison card */
+      .comparison-container {
+        display: none; /* Initially hidden */
+        flex-direction: column;
+        gap: var(--spacing-md);
+        grid-column: 1 / -1; /* Span all columns */
+      }
+      .images-container {
+        display: flex;
+        gap: var(--spacing-md);
+        justify-content: space-between;
+      }
+      .image-box {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--spacing-sm);
+      }
+      .image-box h3 {
+        font-size: 1.1rem;
+        color: var(--primary);
+        margin: 0;
+      }
+      .image-wrapper {
+        width: 100%;
+        height: 300px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: var(--cardAlt);
+      }
+      .image-wrapper img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+      }
+      .image-placeholder {
+        color: var(--muted);
+        font-style: italic;
+      }
+      .download-btn {
+        border: none;
+        border-radius: 8px;
+        padding: 12px 20px;
+        font-weight: 600;
+        cursor: pointer;
+        background: linear-gradient(45deg, var(--primary), var(--primary2));
+        color: #fff;
+        box-shadow: 0 4px 12px rgba(33, 150, 243, 0.25);
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--spacing-xs);
+        align-self: center;
+        margin-top: var(--spacing-md);
+      }
+      .download-btn:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(33, 150, 243, 0.35);
+      }
+      .download-btn:disabled {
+        background: #c9c9c9;
+        box-shadow: none;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      /* Loading spinner */
+      .loading {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: #fff;
+        animation: spin 1s ease-in-out infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Responsive */
+      @media (min-width: 769px) {
+        .grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .comparison-container {
+          grid-column: 1 / -1;
+        }
+      }
+      @media (max-width: 768px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        .comparison-container {
+          grid-column: span 1;
+        }
+        .images-container {
+          flex-direction: column;
+        }
+        .theory .pros-cons {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>📸Pixel Codex📸</h1>
+        <p>Advanced Image Processing with Mathematical Precision</p>
+        <p>Atharv Bandewar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Shubham Adhav</p>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <h2>📸 Upload Image</h2>
+          <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">⬆️</div>
+            <div>Drag & drop or click to upload</div>
+            <button class="upload-btn" id="uploadBtn">Choose Image</button>
+            <input
+              class="file-input"
+              id="fileInput"
+              type="file"
+              accept="image/*"
+            />
+            <img id="preview" alt="" />
+          </div>
+          <div id="successMessage" class="success-message"></div>
+          <div id="errorMessage" class="error-message"></div>
+        </div>
+        <div class="card">
+          <h2>📘 How to Use</h2>
+          <div class="theory">
+            <ol>
+              <li>
+                <strong>Upload an image</strong> using drag & drop or the upload
+                button.
+              </li>
+              <li>
+                <strong>Select a category</strong> from the options panel to
+                expand it.
+              </li>
+              <li>
+                <strong>Choose a filter method</strong> by clicking on any
+                option.
+              </li>
+              <li>
+                <strong>View the theory</strong> in the bottom-right panel for
+                mathematical details.
+              </li>
+              <li>
+                <strong>Apply the filter</strong> to send the request to your
+                backend service.
+              </li>
+              <li>
+                <strong>Compare results</strong> in the comparison panel that
+                appears after processing and download your processed image.
+              </li>
+            </ol>
+            <div class="note">
+              <strong>Note:</strong> The theory panel provides comprehensive
+              mathematical foundations, including kernels, formulas, algorithms,
+              and practical considerations for each method.
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>⚙️ Filter Options</h2>
+          <div class="accordion" id="accordion">
+            <button class="acc-header">🎨 Basic Filters</button>
+            <div class="acc-panel">
+              <div class="grid-options">
+                <div class="opt" data-key="blur">Blur (Mean)</div>
+                <div class="opt" data-key="sharpen">Sharpen</div>
+                <div class="opt" data-key="edge">Edge Detection</div>
+                <div class="opt" data-key="emboss">Emboss</div>
+                <div class="opt" data-key="sepia">Sepia</div>
+                <div class="opt" data-key="negative">Negative</div>
+                <div class="opt" data-key="brightness">Brightness</div>
+                <div class="opt" data-key="contrast">Contrast</div>
+              </div>
+            </div>
+            <button class="acc-header">🛡️ Noise Reduction</button>
+            <div class="acc-panel">
+              <div class="grid-options">
+                <div class="opt" data-key="median">Median Filter</div>
+                <div class="opt" data-key="gaussian">Gaussian Blur</div>
+                <div class="opt" data-key="average">Average (Box)</div>
+              </div>
+            </div>
+            <button class="acc-header">🛠 Enhancement</button>
+            <div class="acc-panel">
+              <div class="grid-options">
+                <div class="opt" data-key="high_pass">High-Pass</div>
+                <div class="opt" data-key="high_boost">High-Boost</div>
+                <div class="opt" data-key="sharpening">Unsharp Masking</div>
+                <div class="opt" data-key="laplacian">Laplacian</div>
+                <div class="opt" data-key="sobel">Sobel</div>
+                <div class="opt" data-key="prewitt">Prewitt</div>
+              </div>
+            </div>
+            <button class="acc-header">🎯 Edge Detection</button>
+            <div class="acc-panel">
+              <div class="grid-options">
+                <div class="opt" data-key="canny">Canny</div>
+                <div class="opt" data-key="laplacian_edge">Laplacian Edge</div>
+                <div class="opt" data-key="sobel_edge">Sobel Edge</div>
+                <div class="opt" data-key="prewitt_edge">Prewitt Edge</div>
+              </div>
+            </div>
+            <button class="acc-header">🧩 Segmentation</button>
+            <div class="acc-panel">
+              <div class="grid-options">
+                <div class="opt" data-key="kmeans">K-Means</div>
+                <div class="opt" data-key="watershed">Watershed</div>
+                <div class="opt" data-key="thresholding">Thresholding</div>
+                <div class="opt" data-key="binary">Binary (Otsu)</div>
+              </div>
+            </div>
+            <button class="acc-header">✨ Feature Detection</button>
+            <div class="acc-panel">
+              <div class="grid-options">
+                <div class="opt" data-key="orb">ORB</div>
+                <div class="opt" data-key="sift">SIFT</div>
+                <div class="opt" data-key="surf">SURF</div>
+              </div>
+            </div>
+            <button class="acc-header">🔄 Transforms</button>
+            <div class="acc-panel">
+              <div class="grid-options">
+                <div class="opt" data-key="grayscale">Grayscale</div>
+                <div class="opt" data-key="brightening">Brightening</div>
+                <div class="opt" data-key="darkening">Darkening</div>
+                <div class="opt" data-key="gray_level_slicing">
+                  Gray-Level Slicing
+                </div>
+                <div class="opt" data-key="negation">Negation</div>
+              </div>
+            </div>
+          </div>
+          <div class="action-row">
+            <button id="applyBtn" class="apply-btn" disabled>
+              🚀 Apply Filter
+            </button>
+            <div id="selInfo" class="sel-chip" style="display: none">
+              <strong>Selected:</strong>
+              <span id="selName">–</span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>📖 Mathematical Theory & Implementation</h2>
+          <div id="theoryBox" class="theory">
+            <h3>Welcome to Image Filter Studio Pro</h3>
+            <p>
+              Select any method from the options panel to view comprehensive
+              mathematical theory, including:
+            </p>
+            <ul>
+              <li>
+                <strong>Mathematical formulations</strong> with precise
+                equations
+              </li>
+              <li><strong>Convolution kernels</strong> and filter masks</li>
+              <li><strong>Algorithm steps</strong> for implementation</li>
+              <li>
+                <strong>Parameter explanations</strong> and tuning guidelines
+              </li>
+              <li><strong>Practical considerations</strong> and use cases</li>
+              <li>
+                <strong>Advantages and limitations</strong> of each method
+              </li>
+            </ul>
+            <div class="note">
+              All mathematical expressions are rendered using KaTeX for precise
+              notation.
+            </div>
+          </div>
+        </div>
+        <div class="card comparison-container" id="comparisonContainer">
+          <h2>🔍 Image Comparison</h2>
+          <div class="images-container">
+            <div class="image-box">
+              <h3>Original Image</h3>
+              <div class="image-wrapper">
+                <img id="originalImage" style="display: none" />
+                <div id="originalPlaceholder" class="image-placeholder">
+                  No image uploaded
+                </div>
+              </div>
+            </div>
+            <div class="image-box">
+              <h3>Processed Image</h3>
+              <div class="image-wrapper">
+                <img id="processedImage" style="display: none" />
+                <div id="processedPlaceholder" class="image-placeholder">
+                  Apply a filter to see results
+                </div>
+              </div>
+            </div>
+          </div>
+          <button id="downloadBtn" class="download-btn" disabled>
+            <span>⬇️</span> Download Processed Image
+          </button>
+        </div>
+      </div>
+    </div>
+    <script>
+      // Global variables
+      let selectedKey = null;
+      let selectedLabel = null;
+      let uploadedFile = null;
+      let processedImageData = null;
+      let currentOpenPanel = null;
+
+      // DOM elements
+      const uploadArea = document.getElementById("uploadArea");
+      const fileInput = document.getElementById("fileInput");
+      const uploadBtn = document.getElementById("uploadBtn");
+      const preview = document.getElementById("preview");
+      const applyBtn = document.getElementById("applyBtn");
+      const selInfo = document.getElementById("selInfo");
+      const selName = document.getElementById("selName");
+      const theoryBox = document.getElementById("theoryBox");
+      const successMessage = document.getElementById("successMessage");
+      const errorMessage = document.getElementById("errorMessage");
+      const originalImage = document.getElementById("originalImage");
+      const originalPlaceholder = document.getElementById(
+        "originalPlaceholder"
+      );
+      const processedImage = document.getElementById("processedImage");
+      const processedPlaceholder = document.getElementById(
+        "processedPlaceholder"
+      );
+      const downloadBtn = document.getElementById("downloadBtn");
+      const comparisonContainer = document.getElementById(
+        "comparisonContainer"
+      );
+
+      // Upload functionality
+      uploadArea.addEventListener("click", (e) => {
+        // Only trigger file input if the click is not on the upload button
+        if (e.target !== uploadBtn) {
+          fileInput.click();
+        }
+      });
+
+      uploadBtn.addEventListener("click", (e) => {
+        // Prevent event bubbling to avoid double trigger
+        e.stopPropagation();
+        fileInput.click();
+      });
+
+      uploadArea.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        uploadArea.classList.add("dragover");
+      });
+      uploadArea.addEventListener("dragleave", () =>
+        uploadArea.classList.remove("dragover")
+      );
+      uploadArea.addEventListener("drop", (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove("dragover");
+        if (e.dataTransfer.files.length) {
+          handleFileUpload(e.dataTransfer.files[0]);
+        }
+      });
+      fileInput.addEventListener("change", (e) => {
+        if (e.target.files.length) {
+          handleFileUpload(e.target.files[0]);
+        }
+      });
+
+      function handleFileUpload(file) {
+        if (!file.type.startsWith("image/")) {
+          showError("Please select a valid image file.");
+          return;
+        }
+        uploadedFile = file;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const imageData = ev.target.result;
+          preview.src = imageData;
+          preview.style.display = "block";
+          originalImage.src = imageData;
+          originalImage.style.display = "block";
+          originalPlaceholder.style.display = "none";
+          showSuccess(`Image "${file.name}" uploaded successfully!`);
+        };
+        reader.readAsDataURL(file);
+      }
+
+      function showSuccess(message) {
+        successMessage.textContent = message;
+        successMessage.style.display = "block";
+        errorMessage.style.display = "none";
+        setTimeout(() => {
+          successMessage.style.display = "none";
+        }, 3000);
+      }
+
+      function showError(message) {
+        errorMessage.textContent = message;
+        errorMessage.style.display = "block";
+        successMessage.style.display = "none";
+        setTimeout(() => {
+          errorMessage.style.display = "none";
+        }, 5000);
+      }
+
+      // Accordion functionality
+      document.querySelectorAll(".acc-header").forEach((header) => {
+        header.addEventListener("click", () => {
+          const panel = header.nextElementSibling;
+          const isCurrentlyOpen = panel.style.display === "block";
+          // Close all panels and remove active class
+          document
+            .querySelectorAll(".acc-panel")
+            .forEach((p) => (p.style.display = "none"));
+          document
+            .querySelectorAll(".acc-header")
+            .forEach((h) => h.classList.remove("active"));
+          // Open clicked panel if it wasn't already open
+          if (!isCurrentlyOpen) {
+            panel.style.display = "block";
+            header.classList.add("active");
+            currentOpenPanel = panel;
+          } else {
+            currentOpenPanel = null;
+          }
+        });
+      });
+
+      // Option selection
+      document.querySelectorAll(".opt").forEach((option) => {
+        option.addEventListener("click", () => {
+          // Remove active class from all options
+          document
+            .querySelectorAll(".opt")
+            .forEach((opt) => opt.classList.remove("active"));
+          // Add active class to clicked option
+          option.classList.add("active");
+          // Update selected values
+          selectedKey = option.dataset.key;
+          selectedLabel = option.textContent.trim();
+          // Update UI
+          selName.textContent = selectedLabel;
+          selInfo.style.display = "flex";
+          applyBtn.disabled = false;
+          // Render theory
+          renderTheory(selectedKey, selectedLabel);
+        });
+      });
+
+      // Apply button functionality
+      applyBtn.addEventListener("click", async () => {
+        if (!uploadedFile || !selectedKey) {
+          showError("Please upload an image and select a filter method first.");
+          return;
+        }
+        applyBtn.disabled = true;
+        applyBtn.innerHTML = '<span class="loading"></span> Processing...';
+        try {
+          const formData = new FormData();
+          formData.append("image", uploadedFile);
+          formData.append("filter", selectedKey);
+
+          // Use the full backend URL
+          // Corrected Line
+          const response = await fetch("http://127.0.0.1:5000/apply_filter", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) {
+            // Only try to parse as JSON if the content type is JSON
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+              const errorData = await response.json();
+              throw new Error(
+                errorData.error ||
+                  `Server responded with status: ${response.status}`
+              );
+            } else {
+              throw new Error(
+                `Server responded with status: ${response.status}`
+              );
+            }
+          }
+
+          // Get the processed image as blob
+          const blob = await response.blob();
+
+          // Check if we got an actual image
+          if (!blob || blob.size === 0) {
+            throw new Error("Received empty response from server");
+          }
+
+          const imageUrl = URL.createObjectURL(blob);
+
+          // Display the processed image
+          processedImage.src = imageUrl;
+          processedImage.style.display = "block";
+          processedPlaceholder.style.display = "none";
+
+          // Store the image data for download
+          processedImageData = {
+            blob: blob,
+            url: imageUrl,
+            filename: `filtered_${selectedKey}.jpg`,
+          };
+
+          // Enable download button
+          downloadBtn.disabled = false;
+
+          // Show the comparison container
+          comparisonContainer.style.display = "flex";
+
+          // Scroll to comparison section
+          comparisonContainer.scrollIntoView({
+            behavior: "smooth",
+            block: "nearest",
+          });
+
+          showSuccess(`Filter "${selectedLabel}" applied successfully!`);
+        } catch (error) {
+          showError(`Error applying filter: ${error.message}`);
+        } finally {
+          applyBtn.disabled = false;
+          applyBtn.textContent = "🚀 Apply Filter";
+        }
+      });
+
+      // Download button functionality
+      downloadBtn.addEventListener("click", () => {
+        if (!processedImageData) {
+          showError("No processed image available for download.");
+          return;
+        }
+
+        // Create a temporary link to trigger the download
+        const link = document.createElement("a");
+        link.href = processedImageData.url;
+        link.download = processedImageData.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        showSuccess("Image downloaded successfully!");
+      });
+
+      // Comprehensive theory database
+      const THEORIES = {
+        // BASIC FILTERS
+        blur: `
+<h3>Mean Blur (Box Filter)</h3>
+<h4>Mathematical Foundation</h4>
+<p>Mean blur replaces each pixel with the arithmetic mean of its neighborhood through convolution.</p>
+<div class="math-block">$$g(x,y) = \\frac{1}{mn} \\sum_{i=-a}^{a} \\sum_{j=-b}^{b} f(x+i, y+j)$$</div>
+<h4>Convolution Kernel (3×3)</h4>
+<div class="math-block">$$H = \\frac{1}{9} \\begin{bmatrix} 1 & 1 & 1 \\\\ 1 & 1 & 1 \\\\ 1 & 1 & 1 \\end{bmatrix}$$</div>
+<h4>Frequency Response</h4>
+<div class="math-block">$$H(\\omega_x, \\omega_y) = \\text{sinc}\\left(\\frac{m\\omega_x}{2\\pi}\\right) \\cdot \\text{sinc}\\left(\\frac{n\\omega_y}{2\\pi}\\right)$$</div>
+<div class="pros-cons">
+  <div class="pros">
+    <h5>✅ Advantages</h5>
+    <ul><li>Simple implementation</li><li>Good for uniform noise</li><li>Separable</li></ul>
+  </div>
+  <div class="cons">
+    <h5>❌ Disadvantages</h5>
+    <ul><li>Blurs edges</li><li>Ringing artifacts</li><li>Poor noise characteristics</li></ul>
+  </div>
+</div>`,
+        sharpen: `
+<h3>Sharpening Filter</h3>
+<h4>Mathematical Principle</h4>
+<p>Enhances high frequencies by adding the Laplacian to the original image.</p>
+<div class="math-block">$$g(x,y) = f(x,y) - k \\cdot \\nabla^2 f(x,y)$$</div>
+<h4>Common Kernel</h4>
+<div class="math-block">$$H = \\begin{bmatrix} 0 & -1 & 0 \\\\ -1 & 5 & -1 \\\\ 0 & -1 & 0 \\end{bmatrix}$$</div>
+<h4>Unsharp Masking Formula</h4>
+<div class="math-block">$$g = f + k(f - f_{blur})$$</div>
+<div class="note">
+  <strong>Parameter k:</strong> Controls sharpening strength. Typical range: 0.2-2.0
+</div>`,
+        edge: `
+<h3>Edge Detection Filter</h3>
+<h4>Mathematical Foundation</h4>
+<p>Highlights edges by computing gradients in the image.</p>
+<h4>Convolution Kernel</h4>
+<div class="math-block">$$H = \\begin{bmatrix} -1 & -1 & -1 \\\\ -1 & 8 & -1 \\\\ -1 & -1 & -1 \\end{bmatrix}$$</div>
+<h4>Algorithm Steps</h4>
+<ol>
+  <li>Apply convolution with the kernel</li>
+  <li>Threshold the result to identify edges</li>
+  <li>Optional: Apply non-maximum suppression for thin edges</li>
+</ol>`,
+        emboss: `
+<h3>Emboss Filter</h3>
+<h4>Principle</h4>
+<p>Creates a relief effect by computing directional derivatives.</p>
+<h4>Standard Emboss Kernel</h4>
+<div class="math-block">$$H = \\begin{bmatrix} -2 & -1 & 0 \\\\ -1 & 1 & 1 \\\\ 0 & 1 & 2 \\end{bmatrix}$$</div>
+<h4>Alternative Kernels</h4>
+<p><strong>45° Emboss:</strong></p>
+<div class="math-block">$$H_{45} = \\begin{bmatrix} -1 & -1 & 0 \\\\ -1 & 0 & 1 \\\\ 0 & 1 & 1 \\end{bmatrix}$$</div>
+<div class="note">
+  Often combined with offset (+128) to center gray values.
+</div>`,
+        sepia: `
+<h3>Sepia Tone</h3>
+<h4>Color Transform Matrix</h4>
+<p>Linear transformation creating warm, vintage tones.</p>
+<div class="math-block">$\\begin{bmatrix} R' \\\\ G' \\\\ B' \\end{bmatrix} = \\begin{bmatrix} 0.393 & 0.769 & 0.189 \\\\ 0.349 & 0.686 & 0.168 \\\\ 0.272 & 0.534 & 0.131 \\end{bmatrix} \\begin{bmatrix} R \\\\ G \\\\ B \\end{bmatrix}$</div>
+<h4>Implementation</h4>
+<pre>R' = 0.393*R + 0.769*G + 0.189*B
+G' = 0.349*R + 0.686*G + 0.168*B  
+B' = 0.272*R + 0.534*G + 0.131*B</pre>
+<div class="note">
+  Values must be clamped to [0,255] range after transformation.
+</div>`,
+        negative: `
+<h3>Negative (Invert)</h3>
+<h4>Mathematical Formula</h4>
+<div class="math-block">$g(x,y) = L-1 - f(x,y)$</div>
+<p>For 8-bit images (L=256):</p>
+<div class="math-block">$g(x,y) = 255 - f(x,y)$</div>
+<h4>Applications</h4>
+<ul>
+  <li>Medical imaging enhancement</li>
+  <li>Preprocessing for certain algorithms</li>
+  <li>Artistic effects</li>
+</ul>`,
+        brightness: `
+<h3>Brightness Adjustment</h3>
+<h4>Linear Transformation</h4>
+<div class="math-block">$g(x,y) = f(x,y) + \\beta$</div>
+<h4>Parameter Guidelines</h4>
+<ul>
+  <li><strong>β > 0:</strong> Brightens image</li>
+  <li><strong>β < 0:</strong> Darkens image</li>
+  <li><strong>Range:</strong> Typically [-100, 100]</li>
+</ul>
+<h4>Clamping</h4>
+<div class="math-block">$g(x,y) = \\max(0, \\min(255, f(x,y) + \\beta))$</div>`,
+        contrast: `
+<h3>Contrast Enhancement</h3>
+<h4>Linear Stretching</h4>
+<div class="math-block">$g(x,y) = \\alpha \\cdot f(x,y) + \\beta$</div>
+<h4>Parameter Effects</h4>
+<ul>
+  <li><strong>α > 1:</strong> Increases contrast</li>
+  <li><strong>α < 1:</strong> Decreases contrast</li>
+  <li><strong>β:</strong> Brightness offset</li>
+</ul>
+<h4>Automatic Contrast Stretching</h4>
+<div class="math-block">$g = \\frac{255}{f_{max} - f_{min}} (f - f_{min})$</div>
+<div class="note">
+  Often combined with histogram equalization for better results.
+</div>`,
+        // NOISE REDUCTION
+        median: `
+<h3>Median Filter</h3>
+<h4>Mathematical Definition</h4>
+<div class="math-block">$g(x,y) = \\text{median}\\{f(x+i,y+j) : (i,j) \\in W\\}$</div>
+<h4>Algorithm Steps</h4>
+<ol>
+  <li>Extract neighborhood window W</li>
+  <li>Sort pixel values in ascending order</li>
+  <li>Select middle value (median)</li>
+  <li>Replace center pixel</li>
+</ol>
+<h4>Computational Complexity</h4>
+<p>O(n log n) per pixel for window size n, but optimized algorithms exist.</p>
+<div class="pros-cons">
+  <div class="pros">
+    <h5>✅ Advantages</h5>
+    <ul><li>Excellent for salt-pepper noise</li><li>Preserves edges</li><li>Non-linear robustness</li></ul>
+  </div>
+  <div class="cons">
+    <h5>❌ Disadvantages</h5>
+    <ul><li>Computationally expensive</li><li>Can remove fine details</li><li>Not effective for Gaussian noise</li></ul>
+  </div>
+</div>`,
+        gaussian: `
+<h3>Gaussian Blur Filter</h3>
+<h4>Mathematical Foundation</h4>
+<p>Based on the 2D Gaussian distribution for optimal smoothing with minimal artifacts.</p>
+<div class="math-block">$$G(x,y) = \\frac{1}{2\\pi\\sigma^2} e^{-\\frac{x^2+y^2}{2\\sigma^2}}$$</div>
+<h4>Parameter Selection</h4>
+<ul>
+  <li><strong>σ = 0.5:</strong> Minimal smoothing</li>
+  <li><strong>σ = 1.0:</strong> Standard smoothing</li>
+  <li><strong>σ = 2.0:</strong> Heavy smoothing</li>
+</ul>
+<h4>Kernel Size</h4>
+<div class="math-block">$$\\text{size} = 2 \\cdot \\lceil 3\\sigma \\rceil + 1$$</div>
+<h4>Separability</h4>
+<div class="math-block">$$G(x,y) = G_x(x) \\cdot G_y(y)$$</div>
+<div class="math-block">$$G_x(x) = \\frac{1}{\\sqrt{2\\pi}\\sigma} e^{-\\frac{x^2}{2\\sigma^2}}$$</div>
+<div class="pros-cons">
+  <div class="pros">
+    <h5>✅ Advantages</h5>
+    <ul><li>No ringing artifacts</li><li>Isotropic smoothing</li><li>Optimal for Gaussian noise</li></ul>
+  </div>
+  <div class="cons">
+    <h5>❌ Disadvantages</h5>
+    <ul><li>Still blurs edges</li><li>Computationally expensive</li><li>Parameter dependent</li></ul>
+  </div>
+</div>`,
+        average: `
+<h3>Average (Box) Filter</h3>
+<h4>Kernel Definition</h4>
+<div class="math-block">$H[i,j] = \\frac{1}{(2r+1)^2}, \\quad -r \\leq i,j \\leq r$</div>
+<h4>Efficient Implementation</h4>
+<p>Using separable 1D convolutions:</p>
+<div class="math-block">$g = f * h_x * h_y$</div>
+<div class="math-block">$h_x = h_y = \\frac{1}{2r+1}[1, 1, ..., 1]$</div>
+<h4>Integral Image Method</h4>
+<p>O(1) computation per pixel using cumulative sums.</p>`,
+        // ENHANCEMENT
+        high_pass: `
+<h3>High-Pass Filtering</h3>
+<h4>Frequency Domain</h4>
+<div class="math-block">$G(u,v) = H_{HP}(u,v) \\cdot F(u,v)$</div>
+<h4>Ideal High-Pass</h4>
+<div class="math-block">$H_{HP}(u,v) = \\begin{cases} 0 & \\text{if } D(u,v) \\leq D_0 \\\\ 1 & \\text{if } D(u,v) > D_0 \\end{cases}$</div>
+<h4>Butterworth High-Pass</h4>
+<div class="math-block">$H_{HP}(u,v) = \\frac{1}{1 + \\left(\\frac{D_0}{D(u,v)}\\right)^{2n}}$</div>
+<h4>Spatial Domain Approximation</h4>
+<div class="math-block">$H = \\begin{bmatrix} -1 & -1 & -1 \\\\ -1 & 8 & -1 \\\\ -1 & -1 & -1 \\end{bmatrix}$</div>`,
+        high_boost: `
+<h3>High-Boost Filtering</h3>
+<h4>Mathematical Definition</h4>
+<div class="math-block">$g = A \\cdot f - f_{LP}$</div>
+<div class="math-block">$g = f + (A-1)(f - f_{LP})$</div>
+<h4>Parameter A Effects</h4>
+<ul>
+  <li><strong>A = 1:</strong> Standard high-pass</li>
+  <li><strong>A > 1:</strong> High-boost (retains low frequencies)</li>
+  <li><strong>Typical range:</strong> 1.2-5.0</li>
+</ul>
+<h4>Implementation Kernel</h4>
+<div class="math-block">$H = \\begin{bmatrix} -1 & -1 & -1 \\\\ -1 & 8A-1 & -1 \\\\ -1 & -1 & -1 \\end{bmatrix} / 9$</div>`,
+        sharpening: `
+<h3>Unsharp Masking</h3>
+<h4>Classic Formula</h4>
+<div class="math-block">$g = f + k(f - f_{blur})$</div>
+<h4>Three-Parameter Model</h4>
+<div class="math-block">$g = f + \\text{Amount} \\cdot \\text{mask}$</div>
+<div class="math-block">$\\text{mask} = f - G_\\sigma * f$</div>
+<h4>Parameters</h4>
+<ul>
+  <li><strong>Amount:</strong> Enhancement strength (0.5-2.0)</li>
+  <li><strong>Radius (σ):</strong> Blur kernel size (0.5-3.0)</li>
+  <li><strong>Threshold:</strong> Minimum contrast for enhancement</li>
+</ul>
+<div class="note">
+  <strong>Professional Photography:</strong> Typically Amount=100%, Radius=1-2px, Threshold=3-5
+</div>`,
+        laplacian: `
+<h3>Laplacian Operator</h3>
+<h4>Mathematical Definition</h4>
+<div class="math-block">$\\nabla^2 f = \\frac{\\partial^2 f}{\\partial x^2} + \\frac{\\partial^2 f}{\\partial y^2}$</div>
+<h4>Discrete Approximations</h4>
+<p><strong>4-connected:</strong></p>
+<div class="math-block">$L_4 = \\begin{bmatrix} 0 & -1 & 0 \\\\ -1 & 4 & -1 \\\\ 0 & -1 & 0 \\end{bmatrix}$</div>
+<p><strong>8-connected:</strong></p>
+<div class="math-block">$L_8 = \\begin{bmatrix} -1 & -1 & -1 \\\\ -1 & 8 & -1 \\\\ -1 & -1 & -1 \\end{bmatrix}$</div>
+<h4>Enhancement Application</h4>
+<div class="math-block">$g = f - c \\cdot \\nabla^2 f$</div>
+<p>Where c = 1 for 4-connected, c = 1 for 8-connected kernels.</p>`,
+        sobel: `
+<h3>Sobel Operator</h3>
+<h4>Gradient Kernels</h4>
+<div class="math-block">$G_x = \\begin{bmatrix} -1 & 0 & 1 \\\\ -2 & 0 & 2 \\\\ -1 & 0 & 1 \\end{bmatrix}, \\quad G_y = \\begin{bmatrix} -1 & -2 & -1 \\\\ 0 & 0 & 0 \\\\ 1 & 2 & 1 \\end{bmatrix}$</div>
+<h4>Gradient Calculation</h4>
+<div class="math-block">$|\\nabla f| = \\sqrt{(f * G_x)^2 + (f * G_y)^2}$</div>
+<h4>Gradient Direction</h4>
+<div class="math-block">$\\theta = \\arctan\\left(\\frac{f * G_y}{f * G_x}\\right)$</div>
+<h4>Fast Approximation</h4>
+<div class="math-block">$|\\nabla f| \\approx |f * G_x| + |f * G_y|$</div>
+<div class="note">
+  <strong>Design Feature:</strong> Includes smoothing (averaging) perpendicular to gradient direction
+</div>`,
+        prewitt: `
+<h3>Prewitt Operator</h3>
+<h4>Gradient Kernels</h4>
+<div class="math-block">$P_x = \\begin{bmatrix} -1 & 0 & 1 \\\\ -1 & 0 & 1 \\\\ -1 & 0 & 1 \\end{bmatrix}, \\quad P_y = \\begin{bmatrix} -1 & -1 & -1 \\\\ 0 & 0 & 0 \\\\ 1 & 1 & 1 \\end{bmatrix}$</div>
+<h4>Comparison with Sobel</h4>
+<ul>
+  <li><strong>Prewitt:</strong> Simple averaging (weights = 1)</li>
+  <li><strong>Sobel:</strong> Weighted averaging (center weight = 2)</li>
+  <li><strong>Sobel:</strong> Better noise suppression</li>
+  <li><strong>Prewitt:</strong> Simpler computation</li>
+</ul>
+<h4>Compass Operators</h4>
+<p>Prewitt can be extended to 8 directions for comprehensive edge detection.</p>`,
+        // EDGE DETECTION
+        canny: `
+<h3>Canny Edge Detector</h3>
+<h4>Algorithm Pipeline</h4>
+<ol>
+  <li><strong>Gaussian Smoothing:</strong> f_smooth = G_σ * f</li>
+  <li><strong>Gradient Computation:</strong> Sobel operators</li>
+  <li><strong>Non-Maximum Suppression:</strong> Thin edges</li>
+  <li><strong>Double Thresholding:</strong> Strong/weak edges</li>
+  <li><strong>Hysteresis Tracking:</strong> Connect edge chains</li>
+</ol>
+<h4>Non-Maximum Suppression</h4>
+<p>Suppress non-maximum pixels along gradient direction:</p>
+<div class="math-block">$\\text{if } |\\nabla f|(x,y) < |\\nabla f|(x',y') \\text{ then suppress}$</div>
+<h4>Double Thresholding</h4>
+<ul>
+  <li><strong>Strong edges:</strong> |∇f| > T_high</li>
+  <li><strong>Weak edges:</strong> T_low < |∇f| < T_high</li>
+  <li><strong>Suppressed:</strong> |∇f| < T_low</li>
+</ul>
+<h4>Hysteresis Tracking</h4>
+<p>Connect weak edges to strong edges through 8-connectivity.</p>
+<div class="note">
+  <strong>Optimal Properties:</strong> Good detection, localization, and single response
+</div>`,
+        laplacian_edge: `
+<h3>Laplacian Edge Detection</h3>
+<h4>Zero-Crossing Detection</h4>
+<p>Edges occur at zero-crossings of the Laplacian:</p>
+<div class="math-block">$\\nabla^2 f(x,y) = 0$</div>
+<h4>Laplacian of Gaussian (LoG)</h4>
+<div class="math-block">$\\text{LoG}(x,y) = -\\frac{1}{\\pi\\sigma^4}\\left[1-\\frac{x^2+y^2}{2\\sigma^2}\\right]e^{-\\frac{x^2+y^2}{2\\sigma^2}}$</div>
+<h4>Difference of Gaussians (DoG)</h4>
+<p>Approximation to LoG:</p>
+<div class="math-block">$\\text{DoG} = G_{\\sigma_1} - G_{\\sigma_2}$</div>
+<p>Where σ_2 ≈ 1.6σ_1</p>
+<h4>Mexican Hat Filter</h4>
+<p>Another name for LoG due to its characteristic shape.</p>`,
+        sobel_edge: `
+<h3>Sobel Edge Detection</h3>
+<h4>Edge Strength</h4>
+<div class="math-block">$E(x,y) = \\sqrt{G_x^2 + G_y^2}$</div>
+<h4>Edge Direction</h4>
+<div class="math-block">$\\theta(x,y) = \\arctan2(G_y, G_x)$</div>
+<h4>Thresholding</h4>
+<div class="math-block">$\\text{Edge}(x,y) = \\begin{cases} 1 & \\text{if } E(x,y) > T \\\\ 0 & \\text{otherwise} \\end{cases}$</div>
+<h4>Adaptive Thresholding</h4>
+<p>Use Otsu's method or percentile-based thresholds for automatic selection.</p>`,
+        prewitt_edge: `
+<h3>Prewitt Edge Detection</h3>
+<h4>Implementation</h4>
+<p>Similar to Sobel but with uniform weights:</p>
+<div class="math-block">$E = \\sqrt{(f * P_x)^2 + (f * P_y)^2}$</div>
+<h4>Directional Variants</h4>
+<p>8-directional Prewitt masks for comprehensive edge detection in all orientations.</p>
+<h4>Computational Advantage</h4>
+<p>Simpler than Sobel due to uniform kernel weights, but less noise-robust.</p>`,
+        // SEGMENTATION
+        kmeans: `
+<h3>K-Means Segmentation</h3>
+<h4>Objective Function</h4>
+<p>Minimize within-cluster sum of squares:</p>
+<div class="math-block">$J = \\sum_{i=1}^{k} \\sum_{x \\in C_i} \\|x - \\mu_i\\|^2$</div>
+<h4>Algorithm Steps</h4>
+<ol>
+  <li><strong>Initialize:</strong> k cluster centers μᵢ randomly or with a smarter method.</li>
+  <li><strong>Assignment:</strong> Assign each pixel $x$ to the cluster $C_i$ with the nearest mean $\mu_i$.</li>
+  <li><strong>Update:</strong> Recalculate each cluster mean $\mu_i$ as the average of all pixels assigned to that cluster.</li>
+  <li><strong>Repeat:</strong> Iterate steps 2 and 3 until the cluster assignments no longer change or a maximum number of iterations is reached.</li>
+</ol>
+<h4>Distance Metrics</h4>
+<ul>
+  <li><strong>Euclidean:</strong> $\sqrt{(R_1-R_2)^2 + (G_1-G_2)^2 + (B_1-B_2)^2}$</li>
+  <li><strong>CIE Lab:</strong> A perceptually uniform color space where Euclidean distance approximates human perception of color difference.</li>
+</ul>
+<div class="note">
+  <strong>Use Case:</strong> Color-based segmentation, posterization, and image quantization.
+</div>`,
+        watershed: `
+<h3>Watershed Segmentation</h3>
+<h4>Topological Interpretation</h4>
+<p>Imagine the image as a topographical surface where intensity values represent altitude. Bright pixels are peaks, and dark pixels are valleys.</p>
+<h4>Algorithm Concept</h4>
+<p>The "watershed" algorithm models this surface as being slowly immersed in water. Water will fill the local minima (valleys). When the water from two different minima meet, a dam (watershed line) is built to prevent them from merging. These dams form the boundaries of the segmented regions.</p>
+<h4>Marker-Based Watershed</h4>
+<p>A more robust variant uses **markers** to define the "seed" points from where the flooding begins.
+<ul>
+  <li><strong>Internal markers:</strong> Located inside the objects to be segmented.</li>
+  <li><strong>External markers:</strong> Located in the background.</li>
+</ul>
+This approach prevents over-segmentation, a common issue with the basic watershed algorithm, by ensuring each basin corresponds to a single, marked object.</p>
+<div class="pros-cons">
+  <div class="pros">
+    <h5>✅ Advantages</h5>
+    <ul>
+      <li>Produces continuous and thin edge contours.</li>
+      <li>Especially effective for segmenting touching or overlapping objects.</li>
+    </ul>
+  </div>
+  <div class="cons">
+    <h5>❌ Disadvantages</h5>
+    <ul>
+      <li>Sensitive to noise, often requires pre-processing.</li>
+      <li>Can suffer from over-segmentation without markers.</li>
+    </ul>
+  </div>
+</div>`,
+        thresholding: `
+<h3>Global Thresholding</h3>
+<h4>Binary Transformation</h4>
+<div class="math-block">$g(x,y) = \\begin{cases} 1 & \\text{if } f(x,y) > T \\\\ 0 & \\text{otherwise} \\end{cases}$</div>
+<h4>Threshold Selection Methods</h4>
+<ul>
+  <li><strong>Manual:</strong> User-specified value</li>
+  <li><strong>Histogram analysis:</strong> Valley detection</li>
+  <li><strong>Triangle method:</strong> Geometric approach</li>
+  <li><strong>Isodata:</strong> Iterative refinement</li>
+</ul>
+<h4>Iterative Threshold Selection</h4>
+<ol>
+  <li>Initial estimate T₀</li>
+  <li>Segment into regions R₁ (f > T) and R₂ (f ≤ T)</li>
+  <li>Compute means μ₁, μ₂</li>
+  <li>Update: T = (μ₁ + μ₂)/2</li>
+  <li>Repeat until convergence</li>
+</ol>`,
+        binary: `
+<h3>Binary (Otsu Thresholding)</h3>
+<h4>Objective Function</h4>
+<p>Maximize between-class variance:</p>
+<div class="math-block">$\\sigma_B^2(T) = \\omega_0(T)\\omega_1(T)[\\mu_0(T)-\\mu_1(T)]^2$</div>
+<h4>Class Probabilities</h4>
+<div class="math-block">$\\omega_0(T) = \\sum_{i=0}^{T} p_i, \\quad \\omega_1(T) = \\sum_{i=T+1}^{L-1} p_i$</div>
+<h4>Class Means</h4>
+<div class="math-block">$\\mu_0(T) = \\frac{\\sum_{i=0}^{T} i \\cdot p_i}{\\omega_0(T)}, \\quad \\mu_1(T) = \\frac{\\sum_{i=T+1}^{L-1} i \\cdot p_i}{\\omega_1(T)}$</div>
+<h4>Optimal Threshold</h4>
+<div class="math-block">$T^* = \\arg\\max_T \\sigma_B^2(T)$</div>
+<div class="note">
+  <strong>Assumption:</strong> Bimodal histogram with two distinct classes
+</div>`,
+        // FEATURE DETECTION
+        orb: `
+<h3>ORB (Oriented FAST and Rotated BRIEF)</h3>
+<h4>Keypoint Detection (FAST)</h4>
+<p>ORB first uses the FAST algorithm to find keypoints. A pixel $p$ is considered a keypoint if there's a contiguous segment of $n$ pixels on a circle around it that are all brighter or darker than $I_p + t$ or $I_p - t$, where $I_p$ is the intensity of $p$ and $t$ is a threshold.</p>
+<h4>Orientation Assignment</h4>
+<p>To make the keypoints rotation-invariant, ORB computes an orientation for each keypoint using the intensity centroid. The vector from the keypoint's center to the intensity centroid defines the orientation.</p>
+<div class="math-block">$$C = \left( \frac{\sum_{x,y} x I(x,y)}{\sum_{x,y} I(x,y)}, \frac{\sum_{x,y} y I(x,y)}{\sum_{x,y} I(x,y)} \right)$$</div>
+<div class="math-block">$$\theta = \arctan2(y_c, x_c)$$</div>
+<h4>Descriptor (rBRIEF)</h4>
+<p>The BRIEF descriptor is a simple binary descriptor based on intensity comparisons. ORB adds rotation-invariance to it by aligning the sampling pattern with the keypoint's orientation. The descriptor is a bitstring of 0s and 1s, where each bit is the result of an intensity comparison test between two randomly chosen points in the patch.</p>
+<div class="pros-cons">
+  <div class="pros">
+    <h5>✅ Advantages</h5>
+    <ul>
+      <li>**Very fast:** Faster than both SIFT and SURF.</li>
+      <li>**Free:** No patents.</li>
+      <li>Effective for real-time applications.</li>
+    </ul>
+  </div>
+  <div class="cons">
+    <h5>❌ Disadvantages</h5>
+    <ul>
+      <li>Not scale-invariant (requires a multi-scale approach to handle).</li>
+      <li>Less robust to affine transformations than SIFT.</li>
+    </ul>
+  </div>
+</div>`,
+        sift: `
+<h3>SIFT (Scale-Invariant Feature Transform)</h3>
+<h4>Scale-Space Extrema Detection</h4>
+<p>Keypoints are detected as local extrema of the **Difference-of-Gaussians (DoG)** function in scale-space. The DoG is a band-pass filter that approximates the Laplacian of Gaussian.</p>
+<div class="math-block">$$D(x,y,\sigma) = [G(x,y,k\sigma) - G(x,y,\sigma)] * I(x,y)$$</div>
+<h4>Keypoint Localization</h4>
+<p>Extrema are localized to subpixel accuracy using a Taylor expansion of the DoG function. Keypoints with low contrast or that lie on an edge are discarded.</p>
+<h4>Orientation Assignment</h4>
+<p>A histogram of gradient orientations is created for the neighborhood around a keypoint. The dominant orientation(s) are assigned to the keypoint, providing rotation invariance. All subsequent operations are performed relative to this orientation.</p>
+<h4>Descriptor Generation</h4>
+<p>A 128-dimensional vector is created from a 16x16 window around the keypoint. The window is divided into a 4x4 grid of sub-regions. For each sub-region, an 8-bin gradient orientation histogram is computed, resulting in a 4x4x8 = 128-element descriptor vector. This descriptor is robust to illumination and viewpoint changes.</p>
+<div class="pros-cons">
+  <div class="pros">
+    <h5>✅ Advantages</h5>
+    <ul>
+      <li>**Highly robust:** Invariant to scale, rotation, and illumination changes.</li>
+      <li>Excellent for object recognition and matching.</li>
+    </ul>
+  </div>
+  <div class="cons">
+    <h5>❌ Disadvantages</h5>
+    <ul>
+      <li>**Slow:** Computationally intensive.</li>
+      <li>Patented (though patents have expired).</li>
+    </ul>
+  </div>
+</div>`,
+        surf: `
+<h3>SURF (Speeded-Up Robust Features)</h3>
+<h4>Hessian Matrix</h4>
+<p>Keypoint detection using Hessian determinant, which is approximated using box filters for speed:</p>
+<div class="math-block">$$det(H_{approx}) = D_{xx}D_{yy} - (0.9 D_{xy})^2$$</div>
+<p>Where $D_{xx}$, $D_{yy}$, and $D_{xy}$ are the responses of the box filters for second-order partial derivatives.</p>
+<h4>Integral Image</h4>
+<p>SURF's speed advantage comes from the use of an integral image, which allows for constant-time calculation of box filter responses, regardless of the filter size.</p>
+<h4>Descriptor Generation</h4>
+<p>A 64-dimensional descriptor is created from a 4x4 sub-region grid. Each sub-region computes a 4-component vector based on Haar wavelet responses, resulting in a compact and fast descriptor.</p>
+<div class="pros-cons">
+  <div class="pros">
+    <h5>✅ Advantages</h5>
+    <ul>
+      <li>**Very fast:** Ideal for real-time applications.</li>
+      <li>**Robust:** Resistant to rotation, scale changes, and illumination variations.</li>
+      <li>**Compact descriptor:** 64-D vs SIFT's 128-D.</li>
+    </ul>
+  </div>
+  <div class="cons">
+    <h5>❌ Disadvantages</h5>
+    <ul>
+      <li>Patented (though patents have expired).</li>
+      <li>Less robust than SIFT for complex scale and affine changes.</li>
+    </ul>
+  </div>
+</div>`,
+        // TRANSFORMS
+        grayscale: `
+<h3>Grayscale Conversion</h3>
+<h4>Mathematical Formula</h4>
+<p>Converts an RGB image to a single-channel grayscale image. The most common formula is a weighted average that accounts for human perception of color luminance.</p>
+<div class="math-block">$$L = 0.299 \cdot R + 0.587 \cdot G + 0.114 \cdot B$$</div>
+<div class="note">
+  **Standard:** This formula is based on the ITU-R BT.709 standard. The weights reflect that the human eye is most sensitive to green, followed by red, and least sensitive to blue.
+</div>`,
+        brightening: `
+<h3>Brightening (Linear Transformation)</h3>
+<h4>Mathematical Formula</h4>
+<p>Increases the overall brightness by adding a constant value to each pixel's intensity.</p>
+<div class="math-block">$$g(x,y) = f(x,y) + \\beta$$</div>
+<div class="note">
+  **Clamping:** After the operation, pixel values must be clamped to the valid range [0, 255].
+</div>`,
+        darkening: `
+<h3>Darkening (Gamma Correction)</h3>
+<h4>Mathematical Formula</h4>
+<p>A non-linear transformation that adjusts the brightness and contrast, especially in the mid-tones.</p>
+<div class="math-block">$$g(x,y) = 255 \\left( \\frac{f(x,y)}{255} \\right)^\\gamma$$</div>
+<p>For darkening, the gamma value $\gamma$ is typically greater than 1.</p>`,
+        gray_level_slicing: `
+<h3>Gray-Level Slicing</h3>
+<h4>Mathematical Formula</h4>
+<p>Highlights a specific range of intensity values $[A, B]$ by mapping them to a new value $L$ (e.g., 255), while other pixels are left unchanged or set to a different value.</p>
+<div class="math-block">$$g(x,y) = \\begin{cases} L & \\text{if } A \\leq f(x,y) \\leq B \\\\ f(x,y) & \\text{otherwise} \\end{cases}$$</div>
+<div class="note">
+  **Application:** Useful for isolating features with specific intensity ranges in an image.
+</div>`,
+        negation: `
+<h3>Image Negation (Inversion)</h3>
+<h4>Mathematical Formula</h4>
+<p>Inverts the intensity levels of each pixel. Dark pixels become bright, and bright pixels become dark.</p>
+<div class="math-block">$$g(x,y) = 255 - f(x,y)$$</div>
+<div class="note">
+  **Application:** Common in medical imaging to enhance the visibility of details, such as in X-rays.
+</div>`,
+      };
+
+      // Function to render theory based on selected key
+      function renderTheory(key, label) {
+        if (THEORIES[key]) {
+          theoryBox.innerHTML = THEORIES[key];
+        } else {
+          theoryBox.innerHTML = `<h3>Theory Not Found</h3><p>No detailed theory available for "${label}".</p>`;
+        }
+        // Render KaTeX expressions
+        renderMathInElement(theoryBox, {
+          delimiters: [
+            { left: "$$", right: "$$", display: true },
+            { left: "\\(", right: "\\)", display: false },
+            { left: "$", right: "$", display: false },
+          ],
+        });
+      }
+    </script>
+  </body>
+</html>
