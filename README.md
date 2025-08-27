@@ -51,8 +51,9 @@ Follow these steps to get a local copy up and running.
 ```bash
 git clone [https://github.com/your-username/pixel-codex.git](https://github.com/your-username/pixel-codex.git)
 cd pixel-codex
+```
 
-Note: If you don't have a requirements.txt file, create one in the root directory with the following content:
+***Note: If you don't have a requirements.txt file, create one in the root directory with the following content:***
 
 Flask
 Flask-Cors
@@ -62,7 +63,8 @@ scipy
 scikit-image
 scikit-learn
 opencv-python
-3. Frontend Setup
+
+###3. Frontend Setup
 The frontend consists of static files and requires no special installation. However, you must ensure the JavaScript fetch call points to the correct backend URL.
 
 Open the index.html file.
@@ -78,19 +80,20 @@ Start the Backend Server:
 
 python your_backend_file.py
 The Flask server will start on http://127.0.0.1:5000.
+```
 
-Start the Frontend:
+***Start the Frontend:***
 The easiest way is to use a live server. If you are using VS Code, you can use the Live Server extension.
 
-Right-click on index.html.
+***Right-click on index.html.***
 
-Select "Open with Live Server".
+***Select "Open with Live Server".***
 
-Your browser will open to an address like http://127.0.0.1:5500.
+***Your browser will open to an address like http://127.0.0.1:5500.***
 
 You can now use the application!
 
-🕹️ How to Use
+###🕹️ How to Use
 Upload: Drag an image onto the upload area or click to select a file.
 
 Select a Filter: Expand a category in the "Filter Options" panel.
@@ -101,7 +104,7 @@ Learn: Click on a filter name. The "Mathematical Theory" panel will update with 
 
 Compare & Download: The comparison panel will appear. You can view the result and click the "Download Processed Image" button to save it.
 
-🔬 Available Filters
+###🔬 Available Filters
 A comprehensive list of image processing operations available in the studio:
 
 🎨 Basic Filters
