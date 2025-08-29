@@ -13,32 +13,38 @@ from skimage.feature import peak_local_max
 from sklearn.cluster import KMeans
 import cv2
 
-# --- NEW: Imports for DB and File Handling ---
+# --- UPDATED: Imports for DB, S3, and Environment Variables ---
 import os
 import uuid
+import boto3
+from botocore.exceptions import NoCredentialsError
+from dotenv import load_dotenv
 from database import Database, ImageLog, create_log_entry
 
+# Load environment variables from .env file FIRST
+load_dotenv()
 
 # --- Flask App Setup ---
 app = Flask(__name__)
 CORS(app)
 
-# --- NEW: Directory and Database Configuration ---
-UPLOAD_FOLDER = 'uploads'
-PROCESSED_FOLDER = 'processed'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(PROCESSED_FOLDER, exist_ok=True)
-
-# --- !! IMPORTANT !! ---
-# PASTE YOUR MONGODB ATLAS CONNECTION STRING HERE
-# mongodb+srv://shubham_adhav_dbuser:<db_password>@cluster01.qvp6a8g.mongodb.net/?retryWrites=true&w=majority&appName=Cluster01
-MONGO_URI = "mongodb+srv://shubham_adhav_dbuser:dbuser1234@cluster01.qvp6a8g.mongodb.net/?retryWrites=true&w=majority"
+# --- CORRECTED: Configuration from Environment Variables ---
+# Safely get credentials and config from the environment
+MONGO_URI = os.environ.get("MONGO_URI")
 DB_NAME = "pixel_codex_db"
+S3_BUCKET = os.environ.get("S3_BUCKET_NAME")
+S3_REGION = os.environ.get("AWS_REGION")
 
-# Initialize database connection
+# Check if essential variables are set
+if not MONGO_URI or not S3_BUCKET or not S3_REGION:
+    print("CRITICAL ERROR: Environment variables (MONGO_URI, S3_BUCKET_NAME, AWS_REGION) are not set.")
+    # In a real app, you might want to exit if config is missing
+    # exit(1)
+
+# Initialize S3 and Database clients (only once)
+s3_client = boto3.client('s3', region_name=S3_REGION)
 db = Database(MONGO_URI, DB_NAME)
 if not db.client:
-    # If connection fails, you might want to exit or handle it gracefully
     print("CRITICAL: Database connection failed. The app will run without logging.")
 
 
@@ -46,7 +52,8 @@ if not db.client:
 def home():
     return send_from_directory('.', 'index.html')
 
-# ===== ORIGINAL FILTER FUNCTIONS (ALL LOGIC INCLUDED) =====
+
+# ===== ORIGINAL FILTER FUNCTIONS (ALL LOGIC INCLUDED, NO CHANGES) =====
 
 def apply_blur(image):
     """Apply blur filter to image"""
@@ -453,7 +460,7 @@ def apply_negation(image):
     return ImageOps.invert(image.convert('RGB'))
 
 
-# --- Dictionary mapping filter names to functions ---
+# --- Dictionary mapping filter names to functions (unchanged) ---
 FILTER_FUNCTIONS = {
     'blur': apply_blur, 'sharpen': apply_sharpen, 'edge': apply_edge,
     'emboss': apply_emboss, 'sepia': apply_sepia, 'negative': apply_negative,
@@ -470,81 +477,83 @@ FILTER_FUNCTIONS = {
     'negation': apply_negation
 }
 
-# --- MODIFIED /apply_filter ENDPOINT ---
+
+# --- FULLY REVISED /apply_filter ENDPOINT FOR S3 ---
 @app.route('/apply_filter', methods=['POST'])
 def apply_filter():
     try:
-        if 'image' not in request.files:
-            return jsonify({'error': 'No image file provided'}), 400
-        
-        if 'filter' not in request.form:
-            return jsonify({'error': 'No filter specified'}), 400
-        
+        if 'image' not in request.files or 'filter' not in request.form:
+            return jsonify({'error': 'Missing image or filter parameter'}), 400
+
         image_file = request.files['image']
         filter_name = request.form['filter']
-        
+
         if filter_name not in FILTER_FUNCTIONS:
             return jsonify({'error': f'Invalid filter: {filter_name}'}), 400
-        
-        try:
-            image = Image.open(image_file.stream)
-        except Exception as e:
-            return jsonify({'error': f'Invalid image file: {str(e)}'}), 400
 
-        # --- MongoDB Integration Logic Start ---
+        image = Image.open(image_file.stream)
+
+        # --- S3 Upload and MongoDB Logging Logic ---
         
+        # Generate unique S3 object keys (filenames)
         unique_id = str(uuid.uuid4())
-        file_ext = os.path.splitext(image_file.filename)[1] or '.jpg'
-        original_filename = f"{unique_id}_original{file_ext}"
-        processed_filename = f"{unique_id}_{filter_name}{file_ext}"
+        original_key = f"originals/{unique_id}-{image_file.filename}"
+        processed_key = f"processed/{unique_id}-{filter_name}.jpg"
 
-        original_path = os.path.join(UPLOAD_FOLDER, original_filename)
-        processed_path = os.path.join(PROCESSED_FOLDER, processed_filename)
+        # 1. Upload original image to S3
+        image_file.seek(0) # Rewind the file stream
+        s3_client.upload_fileobj(
+            image_file,
+            S3_BUCKET,
+            original_key,
+            ExtraArgs={'ContentType': image_file.content_type}
+        )
+        original_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{original_key}"
 
-        save_image = image.copy()
-        if save_image.mode in ("RGBA", "P"):
-             save_image = save_image.convert("RGB")
-        save_image.save(original_path)
-
-        # --- Apply the filter ---
+        # 2. Apply the selected filter
         filtered_image = FILTER_FUNCTIONS[filter_name](image)
 
-        # --- Save filtered image and log to DB ---
-        save_filtered_image = filtered_image.copy()
-        if save_filtered_image.mode in ("RGBA", "P", "L"):
-            save_filtered_image = save_filtered_image.convert("RGB")
-        save_filtered_image.save(processed_path)
+        # 3. Prepare processed image for upload (convert to bytes)
+        processed_img_buffer = io.BytesIO()
+        filtered_image.convert("RGB").save(processed_img_buffer, format="JPEG", quality=90)
+        processed_img_buffer.seek(0) # Rewind the buffer
 
+        # 4. Upload processed image to S3
+        s3_client.upload_fileobj(
+            processed_img_buffer,
+            S3_BUCKET,
+            processed_key,
+            ExtraArgs={'ContentType': 'image/jpeg'}
+        )
+        processed_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{processed_key}"
+
+        # 5. Log the URLs to MongoDB
         if db.client:
+            # IMPORTANT: Make sure your ImageLog model in database.py
+            # uses original_image_url and processed_image_url
             log_entry = ImageLog(
-                original_filename=original_filename,
-                processed_filename=processed_filename,
+                original_image_url=original_url,
+                processed_image_url=processed_url,
                 filter_applied=filter_name
             )
             create_log_entry(db.logs_collection, log_entry)
-        
-        # --- MongoDB Integration Logic End ---
 
-        # --- Send response back to the client ---
-        img_io = io.BytesIO()
-        try:
-            format_to_save = filtered_image.format if filtered_image.format else 'JPEG'
-            filtered_image.save(img_io, format_to_save, quality=90)
-        except Exception:
-            filtered_image.convert("RGB").save(img_io, 'JPEG', quality=90)
-        
-        img_io.seek(0)
-        
+        # 6. Send the processed image back to the client
+        processed_img_buffer.seek(0)
         return send_file(
-            img_io,
-            mimetype=f'image/{format_to_save.lower()}',
+            processed_img_buffer,
+            mimetype='image/jpeg',
             as_attachment=False,
             download_name=f'filtered_{filter_name}.jpg'
         )
-        
+
+    except NoCredentialsError:
+        print("ERROR: AWS credentials not found.")
+        return jsonify({'error': 'Server configuration error: AWS credentials not available.'}), 500
     except Exception as e:
         print(f"Server error: {e}")
         return jsonify({'error': f'An unexpected server error occurred: {str(e)}'}), 500
+
 
 # --- UNCHANGED ENDPOINTS ---
 @app.route('/filters', methods=['GET'])
@@ -571,8 +580,9 @@ def health_check():
     """Health check endpoint"""
     return jsonify({'status': 'healthy'})
 
+
 if __name__ == '__main__':
-    print("Starting Enhanced Image Filter API with MongoDB Logging...")
+    print("Starting Enhanced Image Filter API with S3 and MongoDB Logging...")
     
     categories = {
         'Basic Filters': ['blur', 'sharpen', 'edge', 'emboss', 'sepia', 'negative', 'brightness', 'contrast'],
@@ -590,3 +600,6 @@ if __name__ == '__main__':
     
     print("\nServer running on http://127.0.0.1:5000")
     app.run(debug=True, host='0.0.0.0', port=5000)
+# how to store user details like when he come to my website and what filter he used 
+# i have login and logout page on my website 
+# the login page takes username and password
