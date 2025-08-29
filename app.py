@@ -1,4 +1,5 @@
-from flask import Flask, request, jsonify, send_file
+# --- Existing Imports ---
+from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
 from PIL import Image, ImageFilter, ImageEnhance, ImageOps
 import io
@@ -11,19 +12,41 @@ from skimage.segmentation import watershed
 from skimage.feature import peak_local_max
 from sklearn.cluster import KMeans
 import cv2
-from flask import Flask, request, jsonify, send_file, send_from_directory
+
+# --- NEW: Imports for DB and File Handling ---
 import os
+import uuid
+from database import Database, ImageLog, create_log_entry
 
 
+# --- Flask App Setup ---
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app)
+
+# --- NEW: Directory and Database Configuration ---
+UPLOAD_FOLDER = 'uploads'
+PROCESSED_FOLDER = 'processed'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(PROCESSED_FOLDER, exist_ok=True)
+
+# --- !! IMPORTANT !! ---
+# PASTE YOUR MONGODB ATLAS CONNECTION STRING HERE
+# mongodb+srv://shubham_adhav_dbuser:<db_password>@cluster01.qvp6a8g.mongodb.net/?retryWrites=true&w=majority&appName=Cluster01
+MONGO_URI = "mongodb+srv://shubham_adhav_dbuser:dbuser1234@cluster01.qvp6a8g.mongodb.net/?retryWrites=true&w=majority"
+DB_NAME = "pixel_codex_db"
+
+# Initialize database connection
+db = Database(MONGO_URI, DB_NAME)
+if not db.client:
+    # If connection fails, you might want to exit or handle it gracefully
+    print("CRITICAL: Database connection failed. The app will run without logging.")
 
 
 @app.route('/')
 def home():
     return send_from_directory('.', 'index.html')
 
-# ===== ORIGINAL FILTER FUNCTIONS =====
+# ===== ORIGINAL FILTER FUNCTIONS (ALL LOGIC INCLUDED) =====
 
 def apply_blur(image):
     """Apply blur filter to image"""
@@ -125,8 +148,8 @@ def apply_high_pass(image):
     
     # High-pass kernel
     kernel = np.array([[-1, -1, -1],
-                      [-1,  8, -1],
-                      [-1, -1, -1]])
+                       [-1,  8, -1],
+                       [-1, -1, -1]])
     
     filtered = np.zeros_like(img_array)
     for i in range(3):
@@ -164,8 +187,8 @@ def apply_sharpening(image):
     
     # Unsharp mask kernel
     kernel = np.array([[0, -1, 0],
-                      [-1, 5, -1],
-                      [0, -1, 0]])
+                       [-1, 5, -1],
+                       [0, -1, 0]])
     
     filtered = np.zeros_like(img_array)
     for i in range(3):
@@ -183,8 +206,8 @@ def apply_laplacian(image):
     
     # Laplacian kernel
     kernel = np.array([[0, -1, 0],
-                      [-1, 4, -1],
-                      [0, -1, 0]])
+                       [-1, 4, -1],
+                       [0, -1, 0]])
     
     filtered = np.zeros_like(img_array)
     for i in range(3):
@@ -320,7 +343,7 @@ def apply_thresholding(image):
     
     # Apply adaptive thresholding
     thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-                                  cv2.THRESH_BINARY, 11, 2)
+                                     cv2.THRESH_BINARY, 11, 2)
     
     # Convert to RGB
     thresh_rgb = np.stack([thresh, thresh, thresh], axis=2)
@@ -429,105 +452,101 @@ def apply_negation(image):
     """Apply negation transformation"""
     return ImageOps.invert(image.convert('RGB'))
 
-# Dictionary mapping filter names to functions
+
+# --- Dictionary mapping filter names to functions ---
 FILTER_FUNCTIONS = {
-    # Original filters
-    'blur': apply_blur,
-    'sharpen': apply_sharpen,
-    'edge': apply_edge,
-    'emboss': apply_emboss,
-    'sepia': apply_sepia,
-    'negative': apply_negative,
-    'brightness': apply_brightness,
-    'contrast': apply_contrast,
-    
-    # Noise reduction
-    'median': apply_median,
-    'gaussian': apply_gaussian,
-    'average': apply_average,
-    
-    # Enhancement
-    'high_pass': apply_high_pass,
-    'high_boost': apply_high_boost,
-    'sharpening': apply_sharpening,
-    'laplacian': apply_laplacian,
-    'sobel': apply_sobel,
-    'prewitt': apply_prewitt,
-    
-    # Edge detection
-    'canny': apply_canny,
-    'laplacian_edge': apply_laplacian_edge,
-    'sobel_edge': apply_sobel_edge,
-    'prewitt_edge': apply_prewitt_edge,
-    
-    # Segmentation
-    'kmeans': apply_kmeans,
-    'watershed': apply_watershed,
-    'thresholding': apply_thresholding,
-    'binary': apply_binary,
-    
-    # Feature detection
-    'orb': apply_orb,
-    'sift': apply_sift,
-    'surf': apply_surf,
-    
-    # Transforms
-    'grayscale': apply_grayscale,
-    'brightening': apply_brightening,
-    'darkening': apply_darkening,
-    'gray_level_slicing': apply_gray_level_slicing,
+    'blur': apply_blur, 'sharpen': apply_sharpen, 'edge': apply_edge,
+    'emboss': apply_emboss, 'sepia': apply_sepia, 'negative': apply_negative,
+    'brightness': apply_brightness, 'contrast': apply_contrast, 'median': apply_median,
+    'gaussian': apply_gaussian, 'average': apply_average, 'high_pass': apply_high_pass,
+    'high_boost': apply_high_boost, 'sharpening': apply_sharpening,
+    'laplacian': apply_laplacian, 'sobel': apply_sobel, 'prewitt': apply_prewitt,
+    'canny': apply_canny, 'laplacian_edge': apply_laplacian_edge,
+    'sobel_edge': apply_sobel_edge, 'prewitt_edge': apply_prewitt_edge,
+    'kmeans': apply_kmeans, 'watershed': apply_watershed, 'thresholding': apply_thresholding,
+    'binary': apply_binary, 'orb': apply_orb, 'sift': apply_sift, 'surf': apply_surf,
+    'grayscale': apply_grayscale, 'brightening': apply_brightening,
+    'darkening': apply_darkening, 'gray_level_slicing': apply_gray_level_slicing,
     'negation': apply_negation
 }
 
+# --- MODIFIED /apply_filter ENDPOINT ---
 @app.route('/apply_filter', methods=['POST'])
 def apply_filter():
     try:
-        # Check if image file is present
         if 'image' not in request.files:
             return jsonify({'error': 'No image file provided'}), 400
         
-        # Check if filter is specified
         if 'filter' not in request.form:
             return jsonify({'error': 'No filter specified'}), 400
         
         image_file = request.files['image']
         filter_name = request.form['filter']
         
-        # Validate filter name
         if filter_name not in FILTER_FUNCTIONS:
             return jsonify({'error': f'Invalid filter: {filter_name}'}), 400
         
-        # Open and process the image
         try:
             image = Image.open(image_file.stream)
         except Exception as e:
             return jsonify({'error': f'Invalid image file: {str(e)}'}), 400
+
+        # --- MongoDB Integration Logic Start ---
         
-        # Apply the selected filter
-        try:
-            filtered_image = FILTER_FUNCTIONS[filter_name](image)
-        except Exception as e:
-            return jsonify({'error': f'Error applying filter: {str(e)}'}), 500
+        unique_id = str(uuid.uuid4())
+        file_ext = os.path.splitext(image_file.filename)[1] or '.jpg'
+        original_filename = f"{unique_id}_original{file_ext}"
+        processed_filename = f"{unique_id}_{filter_name}{file_ext}"
+
+        original_path = os.path.join(UPLOAD_FOLDER, original_filename)
+        processed_path = os.path.join(PROCESSED_FOLDER, processed_filename)
+
+        save_image = image.copy()
+        if save_image.mode in ("RGBA", "P"):
+             save_image = save_image.convert("RGB")
+        save_image.save(original_path)
+
+        # --- Apply the filter ---
+        filtered_image = FILTER_FUNCTIONS[filter_name](image)
+
+        # --- Save filtered image and log to DB ---
+        save_filtered_image = filtered_image.copy()
+        if save_filtered_image.mode in ("RGBA", "P", "L"):
+            save_filtered_image = save_filtered_image.convert("RGB")
+        save_filtered_image.save(processed_path)
+
+        if db.client:
+            log_entry = ImageLog(
+                original_filename=original_filename,
+                processed_filename=processed_filename,
+                filter_applied=filter_name
+            )
+            create_log_entry(db.logs_collection, log_entry)
         
-        # Save processed image to memory
+        # --- MongoDB Integration Logic End ---
+
+        # --- Send response back to the client ---
         img_io = io.BytesIO()
         try:
-            filtered_image.save(img_io, 'JPEG', quality=90)
-        except Exception as e:
-            return jsonify({'error': f'Error saving image: {str(e)}'}), 500
+            format_to_save = filtered_image.format if filtered_image.format else 'JPEG'
+            filtered_image.save(img_io, format_to_save, quality=90)
+        except Exception:
+            filtered_image.convert("RGB").save(img_io, 'JPEG', quality=90)
         
         img_io.seek(0)
         
         return send_file(
             img_io,
-            mimetype='image/jpeg',
+            mimetype=f'image/{format_to_save.lower()}',
             as_attachment=False,
             download_name=f'filtered_{filter_name}.jpg'
         )
         
     except Exception as e:
-        return jsonify({'error': f'Server error: {str(e)}'}), 500
+        print(f"Server error: {e}")
+        return jsonify({'error': f'An unexpected server error occurred: {str(e)}'}), 500
 
+# --- UNCHANGED ENDPOINTS ---
 @app.route('/filters', methods=['GET'])
 def get_available_filters():
     """Return list of available filters organized by category"""
@@ -553,8 +572,7 @@ def health_check():
     return jsonify({'status': 'healthy'})
 
 if __name__ == '__main__':
-    print("Starting Enhanced Image Filter API...")
-    print(f"Total available filters: {len(FILTER_FUNCTIONS)}")
+    print("Starting Enhanced Image Filter API with MongoDB Logging...")
     
     categories = {
         'Basic Filters': ['blur', 'sharpen', 'edge', 'emboss', 'sepia', 'negative', 'brightness', 'contrast'],
@@ -570,5 +588,5 @@ if __name__ == '__main__':
         print(f"\n{category}:")
         print(f"  {', '.join(filters)}")
     
-    print("\nServer running on http://127.0.0.1:5500/index.html")
+    print("\nServer running on http://127.0.0.1:5000")
     app.run(debug=True, host='0.0.0.0', port=5000)
