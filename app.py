@@ -450,15 +450,15 @@ def apply_filter():
         
         # Generate unique ID for this operation
         unique_id = str(uuid.uuid4())
+
+        # --- THE FIX: Rewind the file stream to the beginning ---
+        image_file.seek(0)
         
         # Determine storage method (S3 or local)
         if s3_client and S3_BUCKET:
             # S3 storage
             original_key = f"originals/{unique_id}-{image_file.filename}"
-            processed_key = f"processed/{unique_id}-{filter_name}.jpg"
-            
-            # Upload original image to S3
-            image_file.seek(0)
+            # This will now work correctly
             s3_client.upload_fileobj(
                 image_file,
                 S3_BUCKET,
