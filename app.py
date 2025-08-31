@@ -483,32 +483,32 @@ def apply_filter():
         
         # Apply the selected filter
         filtered_image = FILTER_FUNCTIONS[filter_name](image)
-        
-        # Prepare and save processed image
+
+        # Prepare and save processed image in a new BytesIO buffer
         processed_img_buffer = io.BytesIO()
         filtered_image.convert("RGB").save(processed_img_buffer, format="JPEG", quality=90)
         processed_img_buffer.seek(0)
-        
+
+        # Create a new buffer to upload to S3
         if s3_client and S3_BUCKET:
-            # Upload processed image to S3
+            s3_upload_buffer = io.BytesIO(processed_img_buffer.getvalue())  # NEW buffer
+            s3_upload_buffer.seek(0)
+            
+            processed_key = f"processed/{unique_id}-{filter_name}.jpg"
             s3_client.upload_fileobj(
-                processed_img_buffer,
+                s3_upload_buffer,
                 S3_BUCKET,
                 processed_key,
                 ExtraArgs={'ContentType': 'image/jpeg'}
             )
             
-            # Get S3 URL
             processed_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{processed_key}"
         else:
-            # Save processed image locally
             processed_filename = f"{unique_id}-{filter_name}.jpg"
             processed_path = os.path.join(LOCAL_STORAGE_PATH, "processed", processed_filename)
-            
             with open(processed_path, 'wb') as f:
                 f.write(processed_img_buffer.getvalue())
             
-            # Get local URL
             processed_url = f"{BASE_URL}/storage/processed/{processed_filename}"
         
         # Log to MongoDB if available
