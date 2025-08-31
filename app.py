@@ -583,7 +583,7 @@ if __name__ == '__main__':
         print(f"\n{category}:")
         print(f"  {', '.join(filters)}")
     
-    print("\nServer running on http://3.6.126.208:5000/")
+    print("\nServer running on http://15.206.148.101:5000/")
     print(f"Storage: {'S3' if s3_client else 'Local'}")
     print(f"Database: {'MongoDB' if db and db.client else 'None'}")
     
