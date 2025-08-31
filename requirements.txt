@@ -1,31 +1,11 @@
-# --- Web Framework ---
-flask
-flask-cors
-gunicorn
-
-# --- Image Processing ---
-pillow
-numpy>=1.26
-scipy
-scikit-image
-opencv-python
-opencv-contrib-python  # optional: advanced CV algorithms
-
-# --- Machine Learning / Clustering ---
-scikit-learn
-
-# --- AWS & Cloud ---
-boto3
-botocore
-
-# --- MongoDB ---
-pymongo
-
-# --- Environment Variables ---
-python-dotenv
-
-# --- Data Validation ---
-pydantic
-
-# --- Utilities ---
-typing-extensions
+Flask==2.3.3
+Flask-CORS==4.0.0
+Pillow==10.0.1
+numpy==1.24.3
+scipy==1.11.3
+scikit-image==0.21.0
+opencv-python==4.8.0.76
+python-dotenv==1.0.0
+boto3==1.28.57
+pymongo==4.5.0
+pydantic==2.3.0

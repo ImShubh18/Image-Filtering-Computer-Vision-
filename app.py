@@ -1,4 +1,4 @@
-# --- Existing Imports ---
+# --- Imports ---
 from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
 from PIL import Image, ImageFilter, ImageEnhance, ImageOps
@@ -12,8 +12,6 @@ from skimage.segmentation import watershed
 from skimage.feature import peak_local_max
 from sklearn.cluster import KMeans
 import cv2
-
-# --- UPDATED: Imports for DB, S3, and Environment Variables ---
 import os
 import uuid
 import boto3
@@ -21,40 +19,43 @@ from botocore.exceptions import NoCredentialsError
 from dotenv import load_dotenv
 from database import Database, ImageLog, create_log_entry
 
-# Load environment variables from .env file FIRST
+# Load environment variables
 load_dotenv()
 
 # --- Flask App Setup ---
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
-# --- CORRECTED: Configuration from Environment Variables ---
-# Safely get credentials and config from the environment
+# --- Configuration ---
+# Get configuration from environment variables with defaults
 MONGO_URI = os.environ.get("MONGO_URI")
-DB_NAME = "pixel_codex_db"
+DB_NAME = os.environ.get("DB_NAME", "pixel_codex_db")
 S3_BUCKET = os.environ.get("S3_BUCKET_NAME")
-S3_REGION = os.environ.get("AWS_REGION")
+S3_REGION = os.environ.get("AWS_REGION", "us-east-1")
+LOCAL_STORAGE_PATH = os.environ.get("LOCAL_STORAGE_PATH", "./image_storage")
+BASE_URL = os.environ.get("BASE_URL", "http://127.0.0.1:5000")
 
-# Check if essential variables are set
-if not MONGO_URI or not S3_BUCKET or not S3_REGION:
-    print("CRITICAL ERROR: Environment variables (MONGO_URI, S3_BUCKET_NAME, AWS_REGION) are not set.")
-    # In a real app, you might want to exit if config is missing
-    # exit(1)
+# Create local storage directory if it doesn't exist
+os.makedirs(LOCAL_STORAGE_PATH, exist_ok=True)
+os.makedirs(os.path.join(LOCAL_STORAGE_PATH, "originals"), exist_ok=True)
+os.makedirs(os.path.join(LOCAL_STORAGE_PATH, "processed"), exist_ok=True)
 
-# Initialize S3 and Database clients (only once)
-s3_client = boto3.client('s3', region_name=S3_REGION)
+# Initialize database (if MongoDB is configured)
 db = Database(MONGO_URI, DB_NAME)
-if not db.client:
-    print("CRITICAL: Database connection failed. The app will run without logging.")
 
+# Initialize S3 client (if AWS is configured)
+s3_client = None
+if S3_BUCKET and S3_REGION:
+    try:
+        s3_client = boto3.client('s3', region_name=S3_REGION)
+        print("✅ AWS S3 client initialized.")
+    except NoCredentialsError:
+        print("⚠️ AWS credentials not found, falling back to local storage.")
+        s3_client = None
+else:
+    print("ℹ️ S3 configuration not provided, using local storage.")
 
-@app.route('/')
-def home():
-    return send_from_directory('.', 'index.html')
-
-
-# ===== ORIGINAL FILTER FUNCTIONS (ALL LOGIC INCLUDED, NO CHANGES) =====
-
+# --- Filter Functions (unchanged) ---
 def apply_blur(image):
     """Apply blur filter to image"""
     return image.filter(ImageFilter.BLUR)
@@ -102,8 +103,6 @@ def apply_contrast(image):
     enhancer = ImageEnhance.Contrast(image)
     return enhancer.enhance(1.5)
 
-# ===== NOISE REDUCTION FILTERS =====
-
 def apply_median(image):
     """Apply median filter to image"""
     if image.mode != 'RGB':
@@ -144,8 +143,6 @@ def apply_average(image):
     
     return Image.fromarray(filtered.astype(np.uint8))
 
-# ===== ENHANCEMENT FILTERS =====
-
 def apply_high_pass(image):
     """Apply high-pass filter to image"""
     if image.mode != 'RGB':
@@ -153,7 +150,6 @@ def apply_high_pass(image):
     
     img_array = np.array(image, dtype=np.float32)
     
-    # High-pass kernel
     kernel = np.array([[-1, -1, -1],
                        [-1,  8, -1],
                        [-1, -1, -1]])
@@ -162,7 +158,6 @@ def apply_high_pass(image):
     for i in range(3):
         filtered[:,:,i] = ndimage.convolve(img_array[:,:,i], kernel)
     
-    # Normalize and clip
     filtered = np.clip(filtered + 128, 0, 255)
     return Image.fromarray(filtered.astype(np.uint8))
 
@@ -173,13 +168,11 @@ def apply_high_boost(image):
     
     img_array = np.array(image, dtype=np.float32)
     
-    # Apply Gaussian blur
     blurred = np.zeros_like(img_array)
     for i in range(3):
         blurred[:,:,i] = gaussian_filter(img_array[:,:,i], sigma=1.0)
     
-    # High-boost: Original + A*(Original - Blurred)
-    A = 1.5  # Amplification factor
+    A = 1.5
     boosted = img_array + A * (img_array - blurred)
     boosted = np.clip(boosted, 0, 255)
     
@@ -192,7 +185,6 @@ def apply_sharpening(image):
     
     img_array = np.array(image, dtype=np.float32)
     
-    # Unsharp mask kernel
     kernel = np.array([[0, -1, 0],
                        [-1, 5, -1],
                        [0, -1, 0]])
@@ -211,7 +203,6 @@ def apply_laplacian(image):
     
     img_array = np.array(image, dtype=np.float32)
     
-    # Laplacian kernel
     kernel = np.array([[0, -1, 0],
                        [-1, 4, -1],
                        [0, -1, 0]])
@@ -220,7 +211,6 @@ def apply_laplacian(image):
     for i in range(3):
         filtered[:,:,i] = ndimage.convolve(img_array[:,:,i], kernel)
     
-    # Normalize and clip
     filtered = np.clip(filtered + 128, 0, 255)
     return Image.fromarray(filtered.astype(np.uint8))
 
@@ -228,7 +218,6 @@ def apply_sobel(image):
     """Apply Sobel edge detection"""
     if image.mode != 'RGB':
         image = image.convert('RGB')
-
     gray = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
     sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
     sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
@@ -241,7 +230,6 @@ def apply_prewitt(image):
     """Apply Prewitt edge detection"""
     if image.mode != 'RGB':
         image = image.convert('RGB')
-
     gray = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
     kernelx = np.array([[1, 0, -1], [1, 0, -1], [1, 0, -1]])
     kernely = np.array([[1, 1, 1], [0, 0, 0], [-1, -1, -1]])
@@ -252,8 +240,6 @@ def apply_prewitt(image):
     prewitt_rgb = np.stack([prewitt, prewitt, prewitt], axis=2)
     return Image.fromarray(prewitt_rgb)
 
-# ===== EDGE DETECTION =====
-
 def apply_canny(image):
     """Apply Canny edge detection"""
     if image.mode != 'RGB':
@@ -263,7 +249,6 @@ def apply_canny(image):
     gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
     edges = cv2.Canny(gray, 50, 150)
     
-    # Convert to RGB
     edges_rgb = np.stack([edges, edges, edges], axis=2)
     return Image.fromarray(edges_rgb)
 
@@ -271,7 +256,6 @@ def apply_laplacian_edge(image):
     """Apply Laplacian of Gaussian edge detection"""
     if image.mode != 'RGB':
         image = image.convert('RGB')
-
     gray = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
     blurred = cv2.GaussianBlur(gray, (3, 3), 0)
     laplacian = cv2.Laplacian(blurred, cv2.CV_64F)
@@ -287,8 +271,6 @@ def apply_prewitt_edge(image):
     """Apply Prewitt edge detection (alias for consistency)"""
     return apply_prewitt(image)
 
-# ===== SEGMENTATION =====
-
 def apply_kmeans(image):
     """Apply K-means clustering for segmentation"""
     if image.mode != 'RGB':
@@ -297,15 +279,12 @@ def apply_kmeans(image):
     img_array = np.array(image)
     h, w, c = img_array.shape
     
-    # Reshape image to be a list of pixels
     pixels = img_array.reshape((-1, 3))
     
-    # Apply K-means clustering
-    k = 8  # Number of clusters
+    k = 8
     kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
     labels = kmeans.fit_predict(pixels)
     
-    # Replace each pixel with its cluster center
     segmented_pixels = kmeans.cluster_centers_[labels]
     segmented_image = segmented_pixels.reshape((h, w, c))
     
@@ -315,29 +294,19 @@ def apply_watershed(image):
     """Apply watershed segmentation"""
     if image.mode != 'RGB':
         image = image.convert('RGB')
-
     img_array = np.array(image)
     gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
-
-    # Noise removal
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-    # Distance transform
     dist_transform = cv2.distanceTransform(thresh, cv2.DIST_L2, 5)
     _, sure_fg = cv2.threshold(dist_transform, 0.7 * dist_transform.max(), 255, 0)
     sure_fg = np.uint8(sure_fg)
     unknown = cv2.subtract(thresh, sure_fg)
-
-    # Marker labelling
     num_markers, markers = cv2.connectedComponents(sure_fg)
     markers = markers + 1
     markers[unknown == 255] = 0
-
-    # Apply watershed
     markers = cv2.watershed(img_array, markers)
-    img_array[markers == -1] = [255, 0, 0]  # Boundaries in red
-
+    img_array[markers == -1] = [255, 0, 0]
     return Image.fromarray(img_array)
 
 def apply_thresholding(image):
@@ -348,11 +317,9 @@ def apply_thresholding(image):
     img_array = np.array(image)
     gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
     
-    # Apply adaptive thresholding
     thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
                                      cv2.THRESH_BINARY, 11, 2)
     
-    # Convert to RGB
     thresh_rgb = np.stack([thresh, thresh, thresh], axis=2)
     return Image.fromarray(thresh_rgb)
 
@@ -367,8 +334,6 @@ def apply_binary(image):
     binary_rgb = np.stack([binary, binary, binary], axis=2)
     return Image.fromarray(binary_rgb)
 
-# ===== FEATURE DETECTION =====
-
 def apply_orb(image):
     """Apply ORB feature detection"""
     if image.mode != 'RGB':
@@ -377,11 +342,9 @@ def apply_orb(image):
     img_array = np.array(image)
     gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
     
-    # Create ORB detector
     orb = cv2.ORB_create(nfeatures=500)
     keypoints = orb.detect(gray, None)
     
-    # Draw keypoints
     result = cv2.drawKeypoints(img_array, keypoints, None, color=(0, 255, 0), flags=0)
     
     return Image.fromarray(result)
@@ -395,15 +358,12 @@ def apply_sift(image):
     gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
     
     try:
-        # Create SIFT detector (requires opencv-contrib-python)
         sift = cv2.SIFT_create()
         keypoints = sift.detect(gray, None)
         
-        # Draw keypoints
         result = cv2.drawKeypoints(img_array, keypoints, None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
         return Image.fromarray(result)
-    except AttributeError:
-        # Fallback to Harris corners if SIFT not available
+    except (cv2.error, AttributeError):
         corners = cv2.cornerHarris(gray, 2, 3, 0.04)
         result = img_array.copy()
         result[corners > 0.01 * corners.max()] = [0, 255, 0]
@@ -411,11 +371,7 @@ def apply_sift(image):
 
 def apply_surf(image):
     """Apply SURF feature detection (fallback to ORB if not available)"""
-    # SURF is patented and not available in standard OpenCV
-    # Using ORB as fallback
     return apply_orb(image)
-
-# ===== TRANSFORMS =====
 
 def apply_grayscale(image):
     """Convert image to grayscale"""
@@ -425,12 +381,12 @@ def apply_grayscale(image):
 def apply_brightening(image):
     """Apply brightening transformation"""
     enhancer = ImageEnhance.Brightness(image)
-    return enhancer.enhance(1.8)  # Increase brightness by 80%
+    return enhancer.enhance(1.8)
 
 def apply_darkening(image):
     """Apply darkening transformation"""
     enhancer = ImageEnhance.Brightness(image)
-    return enhancer.enhance(0.5)  # Decrease brightness by 50%
+    return enhancer.enhance(0.5)
 
 def apply_gray_level_slicing(image):
     """Apply gray level slicing"""
@@ -440,18 +396,15 @@ def apply_gray_level_slicing(image):
     img_array = np.array(image)
     gray = rgb2gray(img_array)
     
-    # Define slicing range
     low_threshold = 0.3
     high_threshold = 0.7
     
-    # Apply slicing
     sliced = np.zeros_like(gray)
     mask = (gray >= low_threshold) & (gray <= high_threshold)
     sliced[mask] = 1.0
     
     sliced_img = (sliced * 255).astype(np.uint8)
     
-    # Convert to RGB
     sliced_rgb = np.stack([sliced_img, sliced_img, sliced_img], axis=2)
     return Image.fromarray(sliced_rgb)
 
@@ -459,8 +412,7 @@ def apply_negation(image):
     """Apply negation transformation"""
     return ImageOps.invert(image.convert('RGB'))
 
-
-# --- Dictionary mapping filter names to functions (unchanged) ---
+# Dictionary mapping filter names to functions
 FILTER_FUNCTIONS = {
     'blur': apply_blur, 'sharpen': apply_sharpen, 'edge': apply_edge,
     'emboss': apply_emboss, 'sepia': apply_sepia, 'negative': apply_negative,
@@ -477,68 +429,98 @@ FILTER_FUNCTIONS = {
     'negation': apply_negation
 }
 
+# --- Routes ---
+@app.route('/')
+def home():
+    return send_from_directory('.', 'index.html')
 
-# --- FULLY REVISED /apply_filter ENDPOINT FOR S3 ---
 @app.route('/apply_filter', methods=['POST'])
 def apply_filter():
     try:
         if 'image' not in request.files or 'filter' not in request.form:
             return jsonify({'error': 'Missing image or filter parameter'}), 400
-
+        
         image_file = request.files['image']
         filter_name = request.form['filter']
-
+        
         if filter_name not in FILTER_FUNCTIONS:
             return jsonify({'error': f'Invalid filter: {filter_name}'}), 400
-
-        image = Image.open(image_file.stream)
-
-        # --- S3 Upload and MongoDB Logging Logic ---
         
-        # Generate unique S3 object keys (filenames)
+        image = Image.open(image_file.stream)
+        
+        # Generate unique ID for this operation
         unique_id = str(uuid.uuid4())
-        original_key = f"originals/{unique_id}-{image_file.filename}"
-        processed_key = f"processed/{unique_id}-{filter_name}.jpg"
-
-        # 1. Upload original image to S3
-        image_file.seek(0) # Rewind the file stream
-        s3_client.upload_fileobj(
-            image_file,
-            S3_BUCKET,
-            original_key,
-            ExtraArgs={'ContentType': image_file.content_type}
-        )
-        original_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{original_key}"
-
-        # 2. Apply the selected filter
+        
+        # Determine storage method (S3 or local)
+        if s3_client and S3_BUCKET:
+            # S3 storage
+            original_key = f"originals/{unique_id}-{image_file.filename}"
+            processed_key = f"processed/{unique_id}-{filter_name}.jpg"
+            
+            # Upload original image to S3
+            image_file.seek(0)
+            s3_client.upload_fileobj(
+                image_file,
+                S3_BUCKET,
+                original_key,
+                ExtraArgs={'ContentType': image_file.content_type}
+            )
+            
+            # Get S3 URL
+            original_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{original_key}"
+        else:
+            # Local storage
+            original_filename = f"{unique_id}-{image_file.filename}"
+            original_path = os.path.join(LOCAL_STORAGE_PATH, "originals", original_filename)
+            
+            # Save original image locally
+            image_file.seek(0)
+            with open(original_path, 'wb') as f:
+                f.write(image_file.read())
+            
+            # Get local URL
+            original_url = f"{BASE_URL}/storage/originals/{original_filename}"
+        
+        # Apply the selected filter
         filtered_image = FILTER_FUNCTIONS[filter_name](image)
-
-        # 3. Prepare processed image for upload (convert to bytes)
+        
+        # Prepare and save processed image
         processed_img_buffer = io.BytesIO()
         filtered_image.convert("RGB").save(processed_img_buffer, format="JPEG", quality=90)
-        processed_img_buffer.seek(0) # Rewind the buffer
-
-        # 4. Upload processed image to S3
-        s3_client.upload_fileobj(
-            processed_img_buffer,
-            S3_BUCKET,
-            processed_key,
-            ExtraArgs={'ContentType': 'image/jpeg'}
-        )
-        processed_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{processed_key}"
-
-        # 5. Log the URLs to MongoDB
-        if db.client:
-            # IMPORTANT: Make sure your ImageLog model in database.py
-            # uses original_image_url and processed_image_url
+        processed_img_buffer.seek(0)
+        
+        if s3_client and S3_BUCKET:
+            # Upload processed image to S3
+            s3_client.upload_fileobj(
+                processed_img_buffer,
+                S3_BUCKET,
+                processed_key,
+                ExtraArgs={'ContentType': 'image/jpeg'}
+            )
+            
+            # Get S3 URL
+            processed_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{processed_key}"
+        else:
+            # Save processed image locally
+            processed_filename = f"{unique_id}-{filter_name}.jpg"
+            processed_path = os.path.join(LOCAL_STORAGE_PATH, "processed", processed_filename)
+            
+            with open(processed_path, 'wb') as f:
+                f.write(processed_img_buffer.getvalue())
+            
+            # Get local URL
+            processed_url = f"{BASE_URL}/storage/processed/{processed_filename}"
+        
+        # Log to MongoDB if available
+        if db and db.logs_collection:
             log_entry = ImageLog(
                 original_image_url=original_url,
                 processed_image_url=processed_url,
                 filter_applied=filter_name
             )
             create_log_entry(db.logs_collection, log_entry)
-
-        # 6. Send the processed image back to the client
+        
+        # Send the processed image back to the client
         processed_img_buffer.seek(0)
         return send_file(
             processed_img_buffer,
@@ -546,16 +528,15 @@ def apply_filter():
             as_attachment=False,
             download_name=f'filtered_{filter_name}.jpg'
         )
-
-    except NoCredentialsError:
-        print("ERROR: AWS credentials not found.")
-        return jsonify({'error': 'Server configuration error: AWS credentials not available.'}), 500
     except Exception as e:
         print(f"Server error: {e}")
         return jsonify({'error': f'An unexpected server error occurred: {str(e)}'}), 500
 
+@app.route('/storage/<path:filename>')
+def serve_storage(filename):
+    """Serve files from local storage directory"""
+    return send_from_directory(LOCAL_STORAGE_PATH, filename)
 
-# --- UNCHANGED ENDPOINTS ---
 @app.route('/filters', methods=['GET'])
 def get_available_filters():
     """Return list of available filters organized by category"""
@@ -578,11 +559,15 @@ def get_available_filters():
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
-    return jsonify({'status': 'healthy'})
+    return jsonify({
+        'status': 'healthy',
+        'database': 'connected' if db and db.client else 'disconnected',
+        'storage': 's3' if s3_client else 'local'
+    })
 
-
+# --- Main ---
 if __name__ == '__main__':
-    print("Starting Enhanced Image Filter API with S3 and MongoDB Logging...")
+    print("Starting Image Filter API...")
     
     categories = {
         'Basic Filters': ['blur', 'sharpen', 'edge', 'emboss', 'sepia', 'negative', 'brightness', 'contrast'],
@@ -599,7 +584,7 @@ if __name__ == '__main__':
         print(f"  {', '.join(filters)}")
     
     print("\nServer running on http://127.0.0.1:5000")
+    print(f"Storage: {'S3' if s3_client else 'Local'}")
+    print(f"Database: {'MongoDB' if db and db.client else 'None'}")
+    
     app.run(debug=True, host='0.0.0.0', port=5000)
-# how to store user details like when he come to my website and what filter he used 
-# i have login and logout page on my website 
-# the login page takes username and password
