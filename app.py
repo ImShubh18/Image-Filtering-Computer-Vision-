@@ -435,6 +435,7 @@ def home():
     return send_from_directory('.', 'index.html')
 
 @app.route('/apply_filter', methods=['POST'])
+@app.route('/apply_filter', methods=['POST'])
 def apply_filter():
     try:
         if 'image' not in request.files or 'filter' not in request.form:
@@ -446,72 +447,59 @@ def apply_filter():
         if filter_name not in FILTER_FUNCTIONS:
             return jsonify({'error': f'Invalid filter: {filter_name}'}), 400
         
-        image = Image.open(image_file.stream)
-        
-        # Generate unique ID for this operation
-        unique_id = str(uuid.uuid4())
-
-        # --- THE FIX: Rewind the file stream to the beginning ---
+        # --- Read file bytes once ---
+        image_bytes = image_file.read()
         image_file.seek(0)
         
-        # Determine storage method (S3 or local)
+        # Open image from bytes
+        image = Image.open(io.BytesIO(image_bytes))
+
+        # Generate unique ID
+        unique_id = str(uuid.uuid4())
+
+        # --- Store original image ---
         if s3_client and S3_BUCKET:
-            # S3 storage
             original_key = f"originals/{unique_id}-{image_file.filename}"
-            # This will now work correctly
             s3_client.upload_fileobj(
-                image_file,
+                io.BytesIO(image_bytes),
                 S3_BUCKET,
                 original_key,
                 ExtraArgs={'ContentType': image_file.content_type}
             )
-            
-            # Get S3 URL
             original_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{original_key}"
         else:
-            # Local storage
             original_filename = f"{unique_id}-{image_file.filename}"
             original_path = os.path.join(LOCAL_STORAGE_PATH, "originals", original_filename)
-            
-            # Save original image locally
-            image_file.seek(0)
             with open(original_path, 'wb') as f:
-                f.write(image_file.read())
-            
-            # Get local URL
+                f.write(image_bytes)
             original_url = f"{BASE_URL}/storage/originals/{original_filename}"
-        
-        # Apply the selected filter
+
+        # --- Apply filter ---
         filtered_image = FILTER_FUNCTIONS[filter_name](image)
 
-        # Prepare and save processed image in a new BytesIO buffer
-        processed_img_buffer = io.BytesIO()
-        filtered_image.convert("RGB").save(processed_img_buffer, format="JPEG", quality=90)
-        processed_img_buffer.seek(0)
+        # Save processed image to memory
+        processed_buffer = io.BytesIO()
+        filtered_image.convert("RGB").save(processed_buffer, format="JPEG", quality=90)
+        processed_buffer.seek(0)
 
-        # Create a new buffer to upload to S3
+        # --- Store processed image ---
         if s3_client and S3_BUCKET:
-            s3_upload_buffer = io.BytesIO(processed_img_buffer.getvalue())  # NEW buffer
-            s3_upload_buffer.seek(0)
-            
             processed_key = f"processed/{unique_id}-{filter_name}.jpg"
             s3_client.upload_fileobj(
-                s3_upload_buffer,
+                io.BytesIO(processed_buffer.getvalue()),
                 S3_BUCKET,
                 processed_key,
                 ExtraArgs={'ContentType': 'image/jpeg'}
             )
-            
             processed_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{processed_key}"
         else:
             processed_filename = f"{unique_id}-{filter_name}.jpg"
             processed_path = os.path.join(LOCAL_STORAGE_PATH, "processed", processed_filename)
             with open(processed_path, 'wb') as f:
-                f.write(processed_img_buffer.getvalue())
-            
+                f.write(processed_buffer.getvalue())
             processed_url = f"{BASE_URL}/storage/processed/{processed_filename}"
-        
-        # Log to MongoDB if available
+
+        # --- Log to MongoDB ---
         if db and db.logs_collection:
             log_entry = ImageLog(
                 original_image_url=original_url,
@@ -519,15 +507,16 @@ def apply_filter():
                 filter_applied=filter_name
             )
             create_log_entry(db.logs_collection, log_entry)
-        
-        # Send the processed image back to the client
-        processed_img_buffer.seek(0)
+
+        # --- Return processed image ---
+        processed_buffer.seek(0)
         return send_file(
-            processed_img_buffer,
+            processed_buffer,
             mimetype='image/jpeg',
             as_attachment=False,
             download_name=f'filtered_{filter_name}.jpg'
         )
+
     except Exception as e:
         print(f"Server error: {e}")
         return jsonify({'error': f'An unexpected server error occurred: {str(e)}'}), 500
