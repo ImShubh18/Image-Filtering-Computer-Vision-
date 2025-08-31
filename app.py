@@ -500,7 +500,7 @@ def apply_filter():
             processed_url = f"{BASE_URL}/storage/processed/{processed_filename}"
 
         # --- Log to MongoDB ---
-        if db and db.logs_collection:
+        if db is not None and db.logs_collection is not None:
             log_entry = ImageLog(
                 original_image_url=original_url,
                 processed_image_url=processed_url,
