@@ -550,7 +550,7 @@ def health_check():
     """Health check endpoint"""
     return jsonify({
         'status': 'healthy',
-        'database': 'connected' if db and db.client else 'disconnected',
+        'database': 'connected' if db is not None and db.client is not None else 'disconnected',
         'storage': 's3' if s3_client else 'local'
     })
 
