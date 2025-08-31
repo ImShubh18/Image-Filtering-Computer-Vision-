@@ -20,36 +20,41 @@ class ImageLog(BaseModel):
 class Database:
     """Handles MongoDB connection and provides collection access."""
     def __init__(self, uri: Optional[str] = None, db_name: Optional[str] = None):
-        self.client = None
+        self.client: Optional[MongoClient] = None
         self.db = None
-        self.logs_collection = None
-        
-        # Only connect if MongoDB URI is provided
+        self.logs_collection: Optional[Collection] = None
+
         if uri:
             try:
                 self.client = MongoClient(uri, tls=True, tlsAllowInvalidCertificates=True)
-                self.client.admin.command('ismaster') # Check for a successful connection
+                self.client.admin.command('ismaster')  # Test connection
                 print("✅ MongoDB connection successful.")
                 self.db = self.client[db_name or "pixel_codex_db"]
-                self.logs_collection: Collection = self.db['image_processing_logs']
+                self.logs_collection = self.db.get_collection('image_processing_logs')
             except ConnectionFailure as e:
                 print(f"❌ Could not connect to MongoDB: {e}")
                 self.client = None
+                self.logs_collection = None
         else:
             print("ℹ️ MongoDB URI not provided, running without database.")
-    
+
     def close(self):
         """Closes the database connection."""
         if self.client:
             self.client.close()
+            self.client = None
+            self.logs_collection = None
 
 # --- 3. CRUD Operation ---
 def create_log_entry(collection: Optional[Collection], log_data: ImageLog) -> Optional[str]:
-    """Inserts a new image processing log into the collection."""
-    if not collection:
+    """
+    Inserts a new image processing log into the collection.
+    Safe: collection must be explicitly compared to None.
+    """
+    if collection is None:
         print("⚠️ Database collection not available, skipping log entry.")
         return None
-        
+
     try:
         result = collection.insert_one(log_data.model_dump())
         print(f"📄 Logged operation to MongoDB with ID: {result.inserted_id}")
