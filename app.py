@@ -30,8 +30,8 @@ CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 # Get configuration from environment variables with defaults
 MONGO_URI = os.environ.get("MONGO_URI")
 DB_NAME = os.environ.get("DB_NAME", "pixel_codex_db")
-S3_BUCKET = os.environ.get("S3_BUCKET_NAME")
-S3_REGION = os.environ.get("AWS_REGION", "us-east-1")
+S3_BUCKET = "pixel-codex"
+S3_REGION = "ap-south-1b"
 LOCAL_STORAGE_PATH = os.environ.get("LOCAL_STORAGE_PATH", "./image_storage")
 BASE_URL = os.environ.get("BASE_URL", "http://127.0.0.1:5000")
 

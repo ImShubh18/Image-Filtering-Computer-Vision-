@@ -2,3 +2,4 @@ newpixel-codex-pair.pem
 .php-preview-router.php
 __pycache__
 .venv
+.env
