@@ -498,7 +498,12 @@ def apply_filter():
             create_log_entry(db.logs_collection, log_entry)
 
         # --- Log to RDS ---
-        add_filter_history(f"{unique_id}-{image_file.filename}", filter_name)
+        rds_filename = f"{unique_id}-{image_file.filename}"
+        print(f"Logging to RDS: {rds_filename} | Filter: {filter_name}")
+        try:
+            add_filter_history(rds_filename, filter_name)
+        except Exception as e:
+            print(f"Failed to log to RDS: {e}")
 
         # --- Return processed image ---
         processed_buffer.seek(0)
