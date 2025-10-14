@@ -18,7 +18,7 @@ import boto3
 from botocore.exceptions import NoCredentialsError
 from dotenv import load_dotenv
 from database import Database, ImageLog, create_log_entry
-
+from rds_db import add_filter_history
 # Load environment variables
 load_dotenv()
 
@@ -436,6 +436,8 @@ def home():
 
 @app.route('/apply_filter', methods=['POST'])
 @app.route('/apply_filter', methods=['POST'])
+
+@app.route('/apply_filter', methods=['POST'])
 def apply_filter():
     try:
         if 'image' not in request.files or 'filter' not in request.form:
@@ -451,21 +453,14 @@ def apply_filter():
         image_bytes = image_file.read()
         image_file.seek(0)
         
-        # Open image from bytes
         image = Image.open(io.BytesIO(image_bytes))
-
-        # Generate unique ID
         unique_id = str(uuid.uuid4())
 
         # --- Store original image ---
         if s3_client and S3_BUCKET:
             original_key = f"originals/{unique_id}-{image_file.filename}"
-            s3_client.upload_fileobj(
-                io.BytesIO(image_bytes),
-                S3_BUCKET,
-                original_key,
-                ExtraArgs={'ContentType': image_file.content_type}
-            )
+            s3_client.upload_fileobj(io.BytesIO(image_bytes), S3_BUCKET, original_key,
+                                     ExtraArgs={'ContentType': image_file.content_type})
             original_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{original_key}"
         else:
             original_filename = f"{unique_id}-{image_file.filename}"
@@ -476,8 +471,6 @@ def apply_filter():
 
         # --- Apply filter ---
         filtered_image = FILTER_FUNCTIONS[filter_name](image)
-
-        # Save processed image to memory
         processed_buffer = io.BytesIO()
         filtered_image.convert("RGB").save(processed_buffer, format="JPEG", quality=90)
         processed_buffer.seek(0)
@@ -485,12 +478,8 @@ def apply_filter():
         # --- Store processed image ---
         if s3_client and S3_BUCKET:
             processed_key = f"processed/{unique_id}-{filter_name}.jpg"
-            s3_client.upload_fileobj(
-                io.BytesIO(processed_buffer.getvalue()),
-                S3_BUCKET,
-                processed_key,
-                ExtraArgs={'ContentType': 'image/jpeg'}
-            )
+            s3_client.upload_fileobj(io.BytesIO(processed_buffer.getvalue()), S3_BUCKET, processed_key,
+                                     ExtraArgs={'ContentType': 'image/jpeg'})
             processed_url = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{processed_key}"
         else:
             processed_filename = f"{unique_id}-{filter_name}.jpg"
@@ -507,6 +496,9 @@ def apply_filter():
                 filter_applied=filter_name
             )
             create_log_entry(db.logs_collection, log_entry)
+
+        # --- Log to RDS ---
+        add_filter_history(f"{unique_id}-{image_file.filename}", filter_name)
 
         # --- Return processed image ---
         processed_buffer.seek(0)
