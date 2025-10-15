@@ -4,7 +4,7 @@ from mysql.connector import Error
 
 def get_rds_connection():
     return mysql.connector.connect(
-        host="imagefilter-db.chooo8ucmy4k.ap-south-1.rds.amazonaws.com",
+        host="imagefilter-db-new.chooo8ucmy4k.ap-south-1.rds.amazonaws.com",
         user="admin",
         password="Shubh1814",
         database="imagefilter"
